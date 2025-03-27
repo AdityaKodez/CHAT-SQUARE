@@ -1,0 +1,118 @@
+import User from "../models/user.model.js";
+import Message from "../models/message.model.js";
+import cloudinary from "../lib/cloudinary.js";
+
+export const getUserForSidebar = async (req, res) => {
+    try {
+        const LoggedInUserId = req.user._id;
+        const FilteredUser = await User.find({ _id: { $ne: LoggedInUserId } })
+            .select("username fullName _id timestamps profilePic lastOnline") // Add lastOnline here
+        res.status(200).json(FilteredUser);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const getMessages = async (req, res) => {
+    try {
+        const { userId: userToChat } = req.params; // {userId} req.params
+        const myId = req.user._id;
+
+        const messages = await Message.find({
+            $or: [
+                { sender: myId, receiver: userToChat },
+                { sender: userToChat, receiver: myId },
+            ],
+        })
+        res.status(200).json(messages);
+
+    } catch (error) {
+        console.log(error, "ERROR IN MESSAGE CONTROLLER");
+        res.status(500).json({ message: "Internal server error while fetching messages" });
+    }
+
+};
+
+export const markAsRead = async (req, res) => {
+    try {
+        const {messageId} = req.params;
+        const message = await Message.findById(messageId);
+       if(!message){
+         return res.status(404).json({ message: "Message not found" });
+       }
+        message.isRead = true;
+        await message.save();
+        res.status(200).json({ message: "Message marked as read" });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export const sendMessage = async (req, res) => {
+    try {
+        const { content, fileUrl } = req.body;
+        const myId = req.user._id;
+        const { userId: receiver } = req.params;
+
+        const message = new Message({ 
+            sender: myId, 
+            receiver, 
+            content 
+        });
+        await message.save();
+
+        if (fileUrl) {
+            const Image = await cloudinary.uploader.upload(fileUrl);
+            message.fileUrl = Image.secure_url;
+            await message.save();
+        }
+
+        // Return the created message instead of a success message
+        res.status(201).json(message);
+    } catch (error) {
+        console.log("ERROR IN MESSAGE CONTROLLER", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const DeleteMessage = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const userId = req.user._id;
+
+        // Find the message
+        const message = await Message.findById(messageId);
+        
+        // Check if message exists
+        if (!message) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+        
+        // Check if the user is the sender of the message
+        if (message.sender.toString() !== userId.toString()) {
+            return res.status(403).json({ message: "You can only delete your own messages" });
+        }
+        
+        // Delete the message
+        await Message.findByIdAndDelete(messageId);
+        
+        // Get the io instance
+        const io = req.app.get('io');
+        
+        // Emit socket event to notify clients about the deletion
+        if (io) {
+            io.emit('message_deleted', {
+                messageId,
+                conversationId: message.receiver.toString()
+            });
+            console.log("Server emitted message_deleted event:", messageId);
+        }
+        
+        res.status(200).json({ message: "Message deleted successfully" });
+    } catch (error) {
+        console.error("Error in DeleteMessage controller:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
