@@ -18,8 +18,10 @@ app.use(express.json({ limit: '10mb' })); // Adjust the limit as needed
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cors(
   {
-    origin:"http://localhost:5173",
-    credentials:true,
+    origin: process.env.NODE_ENV === "production" 
+      ? true  // Allow requests from any origin in production
+      : "http://localhost:5173",
+    credentials: true,
   }
 ))
 app.use("/api/auth",router)
@@ -28,9 +30,9 @@ app.use((req, res) => {
   res.status(404).json({ error: "Not Found", message: "The requested resource could not be found." }); // or res.render('404.ejs'); or res.send('404 Not Found');
 });
 if(process.env.NODE_ENV === "production"){
-  app.use(express.static(path.join(__dirname,"../frontend/dist")))
+  app.use(express.static(path.join(__dirname,"../../Frontend/dist")))
   app.get("*",(req,res)=>{
-    res.sendFile(path.resolve(__dirname,"../frontend","dist","index.html"))
+    res.sendFile(path.resolve(__dirname,"../../Frontend","dist","index.html"))
   })
 }
 // Make io available to routes
