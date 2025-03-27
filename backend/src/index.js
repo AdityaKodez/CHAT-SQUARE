@@ -24,21 +24,31 @@ app.use(cors(
     credentials: true,
   }
 ))
-app.use("/api/auth",router)
-app.use("/api/message",Messagerouter)
-app.use((req, res) => {
-  res.status(404).json({ error: "Not Found", message: "The requested resource could not be found." }); // or res.render('404.ejs'); or res.send('404 Not Found');
-});
+
+// API routes
+app.use("/api/auth", router)
+app.use("/api/message", Messagerouter)
+
+// Serve static files in production
 if(process.env.NODE_ENV === "production"){
-  app.use(express.static(path.join(__dirname,"../../Frontend/dist")))
-  app.get("*",(req,res)=>{
-    res.sendFile(path.resolve(__dirname,"../../Frontend","dist","index.html"))
+  // Serve static files
+  app.use(express.static(path.join(__dirname, "../Frontend/dist")))
+  
+  // Handle all other routes by serving the index.html
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../Frontend", "dist", "index.html"))
   })
+} else {
+  // Only use the 404 handler in development
+  app.use((req, res) => {
+    res.status(404).json({ error: "Not Found", message: "The requested resource could not be found." });
+  });
 }
+
 // Make io available to routes
 app.set('io', io);
 
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    connectDB()
-  });
+  console.log(`Server is running on port ${PORT}`);
+  connectDB()
+});
