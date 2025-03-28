@@ -49,8 +49,7 @@ const ChatContainer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  
-  // Improved scroll to bottom function
+    // Improved scroll to bottom function
   const scrollToBottom = useCallback((behavior = "smooth") => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior });

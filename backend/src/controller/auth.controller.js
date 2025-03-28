@@ -11,6 +11,15 @@ export const signup = async (req, res) => {
       if(!email||!fullName){
          return res.status(400).json({ message: "you must fill all fields" });
       }
+
+      // Improved name validation
+      const normalizedName = fullName.toLowerCase().trim();
+      const restrictedWords = ['admin', 'faker'];
+      
+      if (restrictedWords.some(word => normalizedName.includes(word))) {
+         return res.status(400).json({ message: "This name is not allowed" });
+      }
+
       if (password.length < 6) {
          return res.status(400).json({ message: "Password must be at least 6 characters long" });
       }
@@ -208,22 +217,18 @@ export const CheckEmail = async (req, res) => {
    try {
      const { email } = req.query;
 
-     // Check if email is provided 
      if (!email) {
        return res.status(400).json({ message: "Email is required" }); 
      }
-     // Find user by email
-     const user = await User.findOne({ email })
+     
+     const user = await User.findOne({ email });
      if (user) {
-       return res.status(200).json({ message: "Email already exists" });
-      } ;
+       return res.status(200).json({ exists: true, message: "Email already registered" });
+     }
 
-     return res.status(200).json({ message: "Email is available" })
-     ;
-   } 
-   catch (error) {
+     return res.status(200).json({ exists: false, message: "Email is available" });
+   } catch (error) {
      console.error("Error in CheckEmail:", error);
      return res.status(500).json({ message: "Internal server error" });
    }
-
 }

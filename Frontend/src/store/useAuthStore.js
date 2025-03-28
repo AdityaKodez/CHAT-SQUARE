@@ -142,5 +142,22 @@ updateLastOnline: async function() {
   } catch (error) {
     console.error("Error updating last online:", error);
   }
+},
+// Make sure your useAuthStore has a signup function like this:
+
+signup: async function(userData) {
+  set({isSigningIn: true});
+  try {
+    const res = await axiosInstance.post("/auth/signup", userData);
+    toast.success("Account created successfully!");
+    set({authUser: res.data});
+    get().connectSocket();
+  } catch (error) {
+    console.error("Signup error:", error);
+    toast.error(error.response?.data?.message || "Signup failed");
+    throw error; // Re-throw to be caught by the component
+  } finally {
+    set({isSigningIn: false});
+  }
 }
 }))

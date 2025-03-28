@@ -1,4 +1,4 @@
-  import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/useAuthStore";
   import { useEffect, useState, useCallback } from "react"
   import { Link} from "react-router-dom";
   import { Loader2 } from "lucide-react";
@@ -6,6 +6,7 @@
   import toast, { Toaster } from "react-hot-toast"; // Add the Toaster import here
   import axiosInstance from "../lib/axios.js"
   import { MdOutlineEmail } from "react-icons/md";
+  
   import Logo from "@/components/logo.jsx";
   function debounce(func, wait) {
     let timeout;
@@ -65,9 +66,8 @@
     // Update the checkEmailAvailability function
 const checkEmailAvailability = useCallback(
   debounce(async (email) => {
-    // Skip for empty or invalid emails
     if (!email || !email.includes('@')) {
-      setEmailStatus({ checking: false, available: true, message: '' });
+      setEmailStatus({ checking: false, available: false, message: '' });
       return;
     }
     
@@ -79,19 +79,14 @@ const checkEmailAvailability = useCallback(
       setEmailStatus({
         checking: false,
         available: !response.data.exists,
-        message: response.data.exists 
-          ? 'Email already registered' 
-          : 'Email is available'
+        message: response.data.message
       });
     } catch (error) {
-      console.error('Error checking email:', error);
       setEmailStatus({ 
         checking: false, 
         available: false, 
-        message: 'Could not verify email' 
+        message: error.response?.data?.message || 'Email verification failed' 
       });
-      // Show error toast
-      toast.error('Error checking email availability');
     }
   }, 500),
   [] 
