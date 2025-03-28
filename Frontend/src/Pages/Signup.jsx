@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/useAuthStore";
   import toast, { Toaster } from "react-hot-toast"; // Add the Toaster import here
   import axiosInstance from "../lib/axios.js"
   import { MdOutlineEmail } from "react-icons/md";
-  
+
   import Logo from "@/components/logo.jsx";
   function debounce(func, wait) {
     let timeout;
@@ -31,6 +31,7 @@ import { useAuthStore } from "@/store/useAuthStore";
       available: true,
       message: ''
     });
+    
 // console.log(formData) checking.....
 // copied from the tutorial 
   const validateForm = () => {
