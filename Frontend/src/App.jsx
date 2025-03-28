@@ -3,7 +3,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Signup from "./Pages/Signup.jsx";
 import Login from "./Pages/Login.jsx";
 import Profile from "./Pages/Profile.jsx";
-import Settings from "./Pages/Settings.jsx";
 import Home from "./Pages/Home.jsx";
 import { useAuthStore } from "./store/useAuthStore";
 import { useEffect } from "react";
@@ -13,6 +12,7 @@ import { useTheme } from "./store/useTheme.js";
 import{Toaster,toast} from "react-hot-toast";
 import useNetworkStatus from "./const/Network";
 import ChatStore from "./store/useChatStore";
+import SettingsPage from "./Pages/Settings.jsx";
 const App = () => {
   const { theme } = useTheme();
   const { authUser, isCheckingAuth } = useAuthStore();
@@ -127,9 +127,7 @@ const App = () => {
         <Route path="/profile" element={
           authUser ? <Profile /> : <Navigate to="/login" />
         } />
-        <Route path="/settings" element={
-          authUser ? <Settings /> : <Navigate to="/login" />
-        } />
+        <Route path="/settings" element={<SettingsPage/>}/>
         <Route path="*" element={<NotFound />} />
       </Routes>
     </motion.div>

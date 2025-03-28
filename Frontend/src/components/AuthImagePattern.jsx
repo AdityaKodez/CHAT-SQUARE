@@ -5,13 +5,7 @@ const AuthImagePattern = ({ title, subtitle }) => {
     const icons = [
       <User className="text-white size-6" />,
       <Users className="text-white size-6" />,
-      <UserPlus className="text-white size-6" />,
-      <UserCheck className="text-white size-6" />,
-      <UserCog className="text-white size-6" />,
-      <UserCircle className="text-white size-6" />,
-      <MessageSquare className="text-white size-6" />,
-      <Heart className="text-white size-6" />,
-      <Bell className="text-white size-6" />
+     
     ];
 
     return (

@@ -16,22 +16,49 @@ export const getUserForSidebar = async (req, res) => {
 
 export const getMessages = async (req, res) => {
     try {
-        const { userId: userToChat } = req.params; // {userId} req.params
+        const { userId: userToChat } = req.params;
         const myId = req.user._id;
+        
+        // Get pagination parameters from query
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20; // Default 20 messages per page
+        const skip = (page - 1) * limit;
+        
+        // Find total count for pagination info
+        const totalCount = await Message.countDocuments({
+            $or: [
+                { sender: myId, receiver: userToChat },
+                { sender: userToChat, receiver: myId },
+            ],
+        });
 
+        // Get messages with pagination, sorted by newest first, then reverse for display
         const messages = await Message.find({
             $or: [
                 { sender: myId, receiver: userToChat },
                 { sender: userToChat, receiver: myId },
             ],
         })
-        res.status(200).json(messages);
+        .sort({ createdAt: -1 }) // Newest first for pagination
+        .skip(skip)
+        .limit(limit)
+        .lean(); // Convert to plain JS objects for better performance
+        
+        // Return messages in chronological order (oldest first)
+        res.status(200).json({
+            messages: messages.reverse(),
+            pagination: {
+                total: totalCount,
+                page,
+                limit,
+                hasMore: skip + messages.length < totalCount
+            }
+        });
 
     } catch (error) {
         console.log(error, "ERROR IN MESSAGE CONTROLLER");
         res.status(500).json({ message: "Internal server error while fetching messages" });
     }
-
 };
 
 export const markAsRead = async (req, res) => {

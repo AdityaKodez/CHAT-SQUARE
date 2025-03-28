@@ -117,13 +117,7 @@ const Sidebar = () => {
             {showOnlineOnly ? "No online users" : "No users found"}
           </div>
         )}
-        {/* for the new group button */}
-        <div className="p-2 border-t border-base-300 absolute bottom-0 w-full font-work-sans lg:p-4">
-          <button className="w-full btn btn-primary flex items-center justify-center min-h-0 gap-2">
-            <Plus size={18} />
-            <span className="hidden lg:inline">Create Group</span>
-          </button>
-        </div>
+      
       </div>
     </aside>
   );

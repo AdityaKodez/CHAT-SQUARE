@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Send, Trash2 } from 'lucide-react';
+import { Send, Trash2, Loader2 } from 'lucide-react';
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
@@ -9,7 +9,6 @@ const UserStatus = ({ userId }) => {
   
   if (!user) return null;
 
-  // In the UserStatus component
   return (
     <p className='text-primary text-xs w-full'>
       {onlineUsers.includes(userId) 
@@ -21,20 +20,21 @@ const UserStatus = ({ userId }) => {
     </p>
   );
 };
-const ChatContainer = () => {
 
+const ChatContainer = () => {
   const { 
     SelectedUser, 
     conversations,
     onlineUsers,
     sendMessage,
     isMessageLoading,
+    isLoadingMoreMessages,
+    getMessages,
     handleNewMessage,
-    DeleteMessage, // Add this to destructured imports
+    DeleteMessage,
   } = ChatStore();
- 
 
-    const userFullName = SelectedUser?.fullName;
+  const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
   
   // Get messages for current conversation only - with safe access using useMemo
@@ -44,7 +44,84 @@ const ChatContainer = () => {
   
   const { socket, authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  
+  // Improved scroll to bottom function
+  const scrollToBottom = useCallback((behavior = "smooth") => {
+    if (messageEndRef.current) {
+      messageEndRef.current.scrollIntoView({ behavior });
+    }
+  }, []);
+  
+  // Function to load more messages
+  const loadMoreMessages = useCallback(async () => {
+    if (!SelectedUser || isLoadingMoreMessages || !hasMore) return;
+    
+    const nextPage = currentPage + 1;
+    try {
+      const pagination = await getMessages({ 
+        userId: SelectedUser._id, 
+        page: nextPage 
+      });
+      
+      if (pagination) {
+        setCurrentPage(nextPage);
+        setHasMore(pagination.hasMore);
+      }
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+    }
+  }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages]);
+  
+  // Handle scroll events with improved detection
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    // More reliable bottom detection (within 100px of bottom)
+    const isAtBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    
+    setIsScrolledToBottom(isAtBottom);
+    
+    // Check if scrolled to top for loading more messages
+    if (container.scrollTop === 0 && hasMore && !isLoadingMoreMessages) {
+      loadMoreMessages();
+    }
+  }, [hasMore, isLoadingMoreMessages, loadMoreMessages]);
+  
+  // Add scroll event listener
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+  
+  // Initial scroll to bottom when messages load
+  useEffect(() => {
+    if (!isMessageLoading && messages.length > 0) {
+      // Use instant scroll on initial load
+      scrollToBottom("auto");
+      setIsScrolledToBottom(true);
+    }
+  }, [isMessageLoading, messages.length, scrollToBottom]);
+  
+  // Reset pagination when changing users
+  useEffect(() => {
+    setCurrentPage(1);
+    setHasMore(true);
+    
+    // Load initial messages for the selected user
+    if (SelectedUser?._id) {
+      getMessages({ userId: SelectedUser._id, page: 1 });
+    }
+  }, [SelectedUser?._id, getMessages]);
   
   function HandleInputChange(e) {
     const content = e.target.value;
@@ -52,8 +129,8 @@ const ChatContainer = () => {
     
     // Emit typing event with correct parameters
     socket.emit("typing", {
-      to: SelectedUser._id,  // Send to the selected user
-      isTyping: content.trim().length > 0  // true if typing, false if not
+      to: SelectedUser._id,
+      isTyping: content.trim().length > 0
     });
   }
 
@@ -105,10 +182,50 @@ const ChatContainer = () => {
     };
   }, [socket, SelectedUser, handleNewMessage]);
 
-  // Scroll to bottom on new messages
+  // Improved scroll to bottom on new messages
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isOtherUserTyping]);
+    // Only auto-scroll if we were already at the bottom
+    if (isScrolledToBottom && messages.length > 0) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => scrollToBottom(), 100);
+    }
+  }, [messages.length, isScrolledToBottom, scrollToBottom]);
+  
+  // Scroll to bottom when typing indicator changes
+  useEffect(() => {
+    if (isScrolledToBottom && isOtherUserTyping) {
+      scrollToBottom();
+    }
+  }, [isOtherUserTyping, isScrolledToBottom, scrollToBottom]);
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const content = e.target.message.value;
+    if (!content.trim()) return;
+
+    try {
+      await sendMessage({
+        userId: SelectedUser._id,
+        content
+      });
+      e.target.reset();
+      
+      // Clear typing status after sending message
+      if (socket) {
+        socket.emit("typing", {
+          to: SelectedUser._id,
+          isTyping: false
+        });
+      }
+      
+      // Force scroll to bottom after sending
+      setIsScrolledToBottom(true);
+      setTimeout(() => scrollToBottom(), 100);
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  };
 
   // Early return if SelectedUser is not available
   if (!SelectedUser) return null;
@@ -142,115 +259,110 @@ const ChatContainer = () => {
         </div>
       </div>
 
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages Container with improved styling */}
+      <div 
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+      >
+        {/* Loading indicator for pagination */}
+        {isLoadingMoreMessages && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="animate-spin h-6 w-6 text-primary" />
+          </div>
+        )}
+        
         {isMessageLoading ? (
-          <div className="flex justify-center">
-            <span className="loading loading-dots"></span>
+          <div className="flex justify-center items-center h-full">
+            <Loader2 className="animate-spin h-10 w-10 text-primary" />
           </div>
         ) : (
-          messages.map((message) => {
-            const isMyMessage = message.sender === authUser._id;
-            
-            return (
-              <div
-                key={message._id}
-                className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
-              >
+          <>
+          {
+            // Show "No messages yet" message if no messages
+            messages.length === 0 && !isMessageLoading && (
+              <div className="flex h-full w-full justify-center items-center text-base-content">
+                <p className='font-work-sans'>
+                  Start Your Chat Now!!
+                </p>
+              </div>
+            )
+          }
+            {messages.map((message) => {
+              const isMyMessage = message.sender === authUser._id;
+              
+              return (
                 <div
-                  className={`
-                    relative group max-w-[80%] rounded-xl p-3 shadow-sm
-                    ${isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"}
-                  `}
+                  key={message._id}
+                  className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  <p
+                  <div
                     className={`
-                      text-[10px] mt-1.5
-                      ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}
+                      relative group max-w-[80%] rounded-xl p-3 shadow-sm
+                      ${isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"}
                     `}
                   >
-                    {new Date(message.createdAt).toLocaleTimeString()}
-                  </p>
-                  
-                  {/* Add delete button - only for user's own messages */}
-                  {isMyMessage && (
-                    <button
-                      onClick={() => DeleteMessage(message._id, SelectedUser._id)}
-                      className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 
-                               transition-opacity duration-200 bg-error hover:bg-error/80 
-                               text-white rounded-full p-1"
-                      title="Delete message"
+                    <p className="text-sm">{message.content}</p>
+                    <p
+                      className={`
+                        text-[10px] mt-1.5
+                        ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}
+                      `}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                    
+                    {/* Delete button for own messages */}
+                    {isMyMessage && (
+                      <button
+                        onClick={() => DeleteMessage(message._id, SelectedUser._id)}
+                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Delete message"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Typing indicator */}
+            {isOtherUserTyping && (
+              <div className="flex justify-start">
+                <div className="bg-base-200 rounded-xl p-3 max-w-[80%]">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
+                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                  </div>
                 </div>
               </div>
-            );
-          })
-        
+            )}
+            
+            {/* Element to scroll to */}
+            <div ref={messageEndRef} className="h-1" />
+          </>
         )}
-        {
-          !isMessageLoading && messages.length === 0 && (
-            <div className="flex justify-center items-center w-full h-full">
-              <span className="text-sm text-base-content/70">Start Your Talk Now!</span>
-            </div> 
-          )
-        }
-
-        
-        {/* Show typing indicator only when the other user is typing */}
-        {isOtherUserTyping && (
-          <div className="flex justify-start">
-            <div className="bg-base-200 max-w-[80%] rounded-xl p-2 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="loading loading-dots loading-sm"></span>
-                <span className="text-xs text-base-content/70">{SelectedUser.fullName} typing...</span>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div ref={messageEndRef} />
       </div>
 
-      {/* Message Input */}
+      {/* Message Input with updated submit handler */}
       <form 
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const content = e.target.message.value;
-          if (!content.trim()) return;
-      
-          try {
-            await sendMessage({
-              userId: SelectedUser._id,
-              content
-            });
-            e.target.reset();
-            
-            // Clear typing status after sending message
-            if (socket) {
-              socket.emit("typing", {
-                to: SelectedUser._id,
-                isTyping: false
-              });
-            }
-          } catch (error) {
-            console.error("Error sending message:", error);
-          }
-        }}
-        className="p-4 border-t border-base-300 bg-base-100"
+        className="p-3 border-t border-base-300 bg-base-100"
+        onSubmit={handleSubmit}
       >
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <input
             type="text"
             name="message"
-            className="input input-bordered flex-1 text-sm h-10"
             placeholder="Type a message..."
+            className="input input-bordered flex-1 text-sm"
             onChange={HandleInputChange}
+            autoComplete="off"
           />
-          <button type="submit" className="btn btn-primary h-10 min-h-0">
+          <button
+            type="submit"
+            className="btn btn-primary btn-sm"
+          >
             <Send size={18} />
           </button>
         </div>

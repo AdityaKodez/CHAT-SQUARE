@@ -167,26 +167,48 @@ const ChatStore = create((set, get) => ({
   conversations: {}, // Store messages per conversation
   
   // In your getMessages method
-  getMessages: async function({ userId }) {
-    set({ isMessageLoading: true });
+  getMessages: async function({ userId, page = 1, limit = 20 }) {
+    const isInitialLoad = page === 1;
+    
+    if (isInitialLoad) {
+      set({ isMessageLoading: true });
+    } else {
+      set({ isLoadingMoreMessages: true });
+    }
+    
     try {
-      const res = await axiosInstance.get(`/message/${userId}`);
+      const res = await axiosInstance.get(`/message/${userId}?page=${page}&limit=${limit}`);
       
-      // Don't override the SelectedUser object with just the ID
-      set((state) => ({
-        conversations: {
-          ...state.conversations,
-          [userId]: res.data
-        },
-        // Remove this line: SelectedUser: userId,
-        messageCount: res.data.length,
-        isMessageLoading: false
-      }));
+      set((state) => {
+        // Get current conversation messages
+        const currentMessages = state.conversations[userId] || [];
+        
+        // For initial load, just set the messages
+        // For pagination (page > 1), prepend the new messages to existing ones
+        const updatedMessages = isInitialLoad 
+          ? res.data.messages 
+          : [...res.data.messages, ...currentMessages];
+        
+        return {
+          conversations: {
+            ...state.conversations,
+            [userId]: updatedMessages
+          },
+          messageCount: updatedMessages.length,
+          isMessageLoading: false,
+          isLoadingMoreMessages: false,
+          messagePagination: res.data.pagination
+        };
+      });
+      
+      return res.data.pagination;
     } catch (error) {
       console.log(error);
-      
       toast.error("Error fetching messages");
-      set({ isMessageLoading: false });
+      set({ 
+        isMessageLoading: false,
+        isLoadingMoreMessages: false 
+      });
     }
   },
 

@@ -25,16 +25,16 @@ const NavBar = () => {
                 </button>
               </Link>
             )}
-            {location.pathname !== "/settings" && (
-              <Link to={"/settings"}>
-                <button className="btn btn-sm btn-soft btn-info">
-                  <Settings size="1rem" />
-                  Settings
-                </button>
-              </Link>
-            )}
           </>
         )}
+        
+        {/* Settings button available to everyone */}
+        <Link to={"/settings"}>
+          <button className="btn btn-sm btn-soft btn-info">
+            <Settings size="1rem" />
+            Settings
+          </button>
+        </Link>
       </div>
     </div>
   );

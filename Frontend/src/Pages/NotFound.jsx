@@ -12,7 +12,7 @@ import { ArrowLeft } from "lucide-react";
                   <div className="relative w-64 h-64 md:w-80 md:h-80">
                     <img
                     //   illustration from https://storyset.com/
-                      src="src/assets/error.svg"
+                      src="public/assets/error.svg" // Updated path to use the public folder
                       alt="404 Illustration"
                       fill
                       className="object-contain animate-wiggle animate-twice animate-ease-out"

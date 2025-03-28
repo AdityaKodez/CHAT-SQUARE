@@ -167,7 +167,7 @@ function HandleSubmit(e) {
 
   <label className="input validator">
 
-    <svg className="h-[1.1em] opacity-50 text-gray-700" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2.5" fill="none" stroke="currentColor"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4">
+    <svg className="h-[1.1em] text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2.5" fill="none" stroke="currentColor"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4">
       </circle>
       </g>
       </svg>
@@ -177,13 +177,13 @@ function HandleSubmit(e) {
      placeholder="Full Name"
       maxLength="30"
      title="Enter your full name" 
-     className=" font-poppins"
+     className=" font-poppins text-primary"
      value={formData.fullName} 
      onChange={(e)=>setFormData({...formData,fullName:e.target.value})}/>
   </label>
 
   <label className="input validator">
-  <img src="./src/assets/key.svg" alt="key" className="h-[1em] opacity-100 invert-50" />
+  <img src="public/assets/key.svg" alt="key" className="h-[1em] opacity-100 invert-50" />
 
     <input 
       type={showPassword ? "text" : "password"} 
@@ -192,18 +192,18 @@ function HandleSubmit(e) {
       minLength="6" 
       maxLength="30" 
       title="Only letters, numbers or dash" 
-      className=" font-poppins" 
+      className=" font-poppins text-primary" 
       value={formData.password}
       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
     />
  
   </label>
   <label className="input validator flex justify-between items-center">
-   <MdOutlineEmail color="gray"/>
+   <MdOutlineEmail className="text-primary"/>
     <input 
       type="email" 
       placeholder="mail@site.com"
-      className={`h-[1em] font-poppins ${
+      className={`h-[1em] font-poppins text-primary ${
         !emailStatus.available && formData.email ? 'border-red-500' : ''
       }`}
       required
