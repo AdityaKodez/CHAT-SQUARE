@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 const app = express();
 const server = http.createServer(app);
 
+// The CORS configuration looks good, but ensure your server is properly started
 const io = new Server(server, {
     cors:{
         origin: process.env.NODE_ENV === "production" 

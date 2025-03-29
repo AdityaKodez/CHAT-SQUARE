@@ -4,6 +4,18 @@ import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
 import { Plus, Users } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 
+// Define an array of background color classes
+const Colors = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-red-500",
+  "bg-yellow-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-teal-500",
+];
+
 const Sidebar = () => {
   const { 
     getUsers, 
@@ -18,6 +30,13 @@ const Sidebar = () => {
   
   const { authUser } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+
+  // Function to get a random color from the Colors array
+  function getRandomColor(userId) {
+    // Use the user ID to get a consistent color for each user
+    const index = userId.charCodeAt(0) % Colors.length;
+    return Colors[index];
+  }
 
   // Initialize socket listeners when component mounts
   useEffect(() => {
@@ -78,11 +97,20 @@ const Sidebar = () => {
               `}
             >
               <div className="relative mx-auto lg:mx-0 my-2">
-                <img
-                  src={user.profilePic}
-                  alt={user.fullName}
-                  className="size-10 object-cover rounded-lg"
-                />
+                {
+                 user.profilePic? (
+                  <img
+                    src={user.profilePic}
+                    alt={user.fullName}
+                    className="w-10 h-10 rounded-full object-cover" 
+                  />
+                 ):(
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getRandomColor(user._id)}`}>
+                    <span className="text-xl text-white">{user.fullName?.charAt(0).toUpperCase()}</span>
+                  </div> 
+                 )
+                }
+              
                 {onlineUsers.includes(user._id) ? (
                   <span className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-zinc-900">
                   </span>):(

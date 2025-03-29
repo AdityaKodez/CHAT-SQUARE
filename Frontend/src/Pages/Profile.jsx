@@ -17,7 +17,21 @@ const Profile = () => {
   const [profileImage, setProfileImage] = useState({
     previewUrl: authUser?.profilePic
   });
-
+  const Colors = [
+    "bg-blue-500",
+    "bg-green-500",
+    "bg-purple-500",
+    "bg-red-500",
+    "bg-yellow-500",
+    "bg-pink-500",
+    "bg-indigo-500",
+    "bg-teal-500",
+  ];
+  function getRandomColor(userId) {
+    // Use the user ID to get a consistent color for each user
+    const index = userId.charCodeAt(0) % Colors.length;
+    return Colors[index];
+  }
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -90,7 +104,7 @@ const Profile = () => {
           {/* Profile Picture Section */}
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative group">
-              <div className="w-48 h-48 rounded-full overflow-hidden bg-blue-400/10 flex items-center justify-center">
+              <div className={ `w-44 h-44 rounded-full overflow-hidden flex items-center justify-center ${getRandomColor(authUser._id)}`}>
                 {profileImage.previewUrl || authUser?.profilePic ? (
                   <img
                     src={profileImage.previewUrl || authUser?.profilePic}
@@ -98,7 +112,9 @@ const Profile = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User className="w-24 h-24 text-blue-400" />
+                  <span className="text-5xl font-bold text-white">
+                    {authUser?.fullName?.charAt(0).toUpperCase() || '?'}
+                  </span>
                 )}
               </div>
               <label

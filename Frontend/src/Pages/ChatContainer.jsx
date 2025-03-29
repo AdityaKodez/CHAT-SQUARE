@@ -20,7 +20,21 @@ const UserStatus = ({ userId }) => {
     </p>
   );
 };
-
+const Colors = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-red-500",
+  "bg-yellow-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-teal-500",
+];
+function getRandomColor(userId) {
+  // Use the user ID to get a consistent color for each user
+  const index = userId.charCodeAt(0) % Colors.length;
+  return Colors[index];
+}
 const ChatContainer = () => {
   const { 
     SelectedUser, 
@@ -122,30 +136,64 @@ const ChatContainer = () => {
     }
   }, [SelectedUser?._id, getMessages]);
   
+  // Add this state to track if the user is currently typing
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
+  
   function HandleInputChange(e) {
     const content = e.target.value;
     if (!socket || !SelectedUser) return;
     
-    // Emit typing event with correct parameters
-    socket.emit("typing", {
-      to: SelectedUser._id,
-      isTyping: content.trim().length > 0
-    });
-  }
-
-  // Auto-clear typing status after delay
-  useEffect(() => {
-    let typingTimer;
-    if (socket && SelectedUser) {
-      typingTimer = setTimeout(() => {
+    // Set typing state to true
+    if (!isTyping && content.trim().length > 0) {
+      setIsTyping(true);
+      socket.emit("typing", {
+        to: SelectedUser._id,
+        isTyping: true
+      });
+    } else if (isTyping && content.trim().length === 0) {
+      // If the input is now empty, immediately set typing to false
+      setIsTyping(false);
+      socket.emit("typing", {
+        to: SelectedUser._id,
+        isTyping: false
+      });
+    }
+    
+    // Clear any existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Set a new timeout
+    typingTimeoutRef.current = setTimeout(() => {
+      if (isTyping) {
+        setIsTyping(false);
         socket.emit("typing", {
           to: SelectedUser._id,
           isTyping: false
         });
-      }, 1000);
-    }
-    return () => clearTimeout(typingTimer);
-  }, [socket, SelectedUser]);
+      }
+    }, 3000);
+  }
+  
+  // Clean up the timeout when component unmounts or user changes
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Also clear typing status when changing users or unmounting
+      if (socket && SelectedUser && isTyping) {
+        socket.emit("typing", {
+          to: SelectedUser._id,
+          isTyping: false
+        });
+        setIsTyping(false);
+      }
+    };
+  }, [socket, SelectedUser, isTyping]);
 
   // Handle socket events
   useEffect(() => {
@@ -241,7 +289,7 @@ const ChatContainer = () => {
                 alt={userFullName} 
                 className="w-10 h-10 rounded-lg object-cover" 
               /> : 
-              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-content font-medium">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-content font-medium ${getRandomColor(SelectedUser._id)}`}>
                 {userFirstInitial}
               </div>
           }

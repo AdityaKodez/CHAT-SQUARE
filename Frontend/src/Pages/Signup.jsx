@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/useAuthStore";
   import toast, { Toaster } from "react-hot-toast"; // Add the Toaster import here
   import axiosInstance from "../lib/axios.js"
   import { MdOutlineEmail } from "react-icons/md";
-
+  import { IoKeyOutline } from "react-icons/io5";
   import Logo from "@/components/logo.jsx";
   function debounce(func, wait) {
     let timeout;
@@ -179,7 +179,8 @@ function HandleSubmit(e) {
   </label>
 
   <label className="input validator">
-  <img src="public/assets/key.svg" alt="key" className="h-[1em] opacity-100 invert-50" />
+
+    <IoKeyOutline className="text-primary"/>
 
     <input 
       type={showPassword ? "text" : "password"} 
