@@ -282,7 +282,7 @@ const ChatContainer = () => {
   return (
     <div className="w-full h-full bg-base-100 font-work-sans flex flex-col">
       {/* Chat Header */}
-      <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full">
+      <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full sticky top-0 z-10">
         <div className="flex items-center gap-3">
           {
             SelectedUser.profilePic ? 

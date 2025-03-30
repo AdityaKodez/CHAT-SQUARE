@@ -7,7 +7,6 @@ const themes = [
    "retro",
    "valentine",
    "halloween",
-   "forest",
    "aqua",
    "pastel",
    "black",

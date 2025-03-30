@@ -119,7 +119,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen pt-20 px-4">
+    <div className="min-h-screen pt-20 px-4 max-w-full overflow-x-hidden">
       <Toaster
         position="top-right"
         hideProgressBar={false}
@@ -140,7 +140,7 @@ const Profile = () => {
         }}
       />
       
-      <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8">
+      <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8 w-full">
         <div className='w-full flex flex-col sm:flex-row justify-between items-center sm:items-start mb-8'>
           <h1 className="text-2xl font-bold font-work-sans mb-4 sm:mb-0">Profile Settings</h1>
           <div className='flex gap-3'>
@@ -226,7 +226,7 @@ const Profile = () => {
               <div>
                 <label className='block text-sm font-medium mb-2 font-work-sans'>Description</label>
                 <textarea
-                  value={profileUpdate.description}
+                  value={authUser.description}
                   onChange={handleTextareaChange}
                   className="textarea resize-none textarea-bordered w-full h-20 font-work-sans"
                   placeholder="Tell us about yourself..."
