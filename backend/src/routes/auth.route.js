@@ -1,5 +1,5 @@
 import express from "express"
-import { checkAuth, login, logout, signup, updateProfile, lastOnline, CheckEmail } from "../controller/auth.controller.js"
+import { checkAuth, login, logout, signup, updateProfile, lastOnline, CheckEmail,Delete } from "../controller/auth.controller.js"
 import { protectRoute } from "../middleware/auth.middleware.js"
 
 const router = express.Router()
@@ -16,5 +16,6 @@ router.patch("/updateProfile", protectRoute, updateProfile)
 router.get("/check", protectRoute, checkAuth)
 // Add this route to your existing routes
 router.get("/check-email", CheckEmail);
+router.delete("/delete",protectRoute,Delete)
 
 export default router;

@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Camera, Loader2, LogOutIcon, Mail, User } from 'lucide-react';
+import { AlertCircle, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import ChatStore from '@/store/useChatStore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Profile = () => {
-  const { authUser, isUpdatingProfile, updateProfile, logout } = useAuthStore();
-
+  const { authUser, isUpdatingProfile, updateProfile, logout, DeleteAccount } = useAuthStore();
+  
+  // State to control delete account confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const [profileUpdate, setProfileUpdate] = useState({
     fullName: authUser?.fullName,
@@ -17,6 +19,7 @@ const Profile = () => {
   const [profileImage, setProfileImage] = useState({
     previewUrl: authUser?.profilePic
   });
+
   const Colors = [
     "bg-blue-500",
     "bg-green-500",
@@ -27,11 +30,12 @@ const Profile = () => {
     "bg-indigo-500",
     "bg-teal-500",
   ];
+
   function getRandomColor(userId) {
-    // Use the user ID to get a consistent color for each user
     const index = userId.charCodeAt(0) % Colors.length;
     return Colors[index];
   }
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -58,11 +62,10 @@ const Profile = () => {
         return;
       }
 
-      // Send fullName, profilePic, and status
       await updateProfile({
         fullName: profileUpdate.fullName,
         profilePic: profileImage.previewUrl,
-        status: profileUpdate.status // Include status in the update
+        status: profileUpdate.status
       });
       
       toast.success("Profile updated successfully!");
@@ -70,6 +73,33 @@ const Profile = () => {
       console.error(error);
       toast.error("Failed to update profile. Please try again.");
     }
+  };
+
+  // Animation variants for the modal
+  const modalVariants = {
+    initial: {
+      opacity: 0,
+      y: 20, // Slide up effect
+      scale: 0.98, // Subtle scale for depth
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.5,
+        ease: "easeOut",
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -20, // Slide down on exit
+      scale: 0.98,
+      transition: {
+        duration: 0.4,
+        ease: "easeIn",
+      },
+    },
   };
 
   return (
@@ -95,16 +125,25 @@ const Profile = () => {
       />
       
       <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8">
-        <div className='w-full flex justify-between items-center mb-6'>
-          <h1 className="text-2xl font-bold mb-6 font-work-sans">Profile Settings</h1>
-          <button onClick={logout} className="btn btn-sm btn-soft btn-error mb-6"><LogOutIcon size="1rem"/>Logout</button>
+        <div className='w-full flex flex-col sm:flex-row justify-between items-center sm:items-start mb-8'>
+          <h1 className="text-2xl font-bold font-work-sans mb-4 sm:mb-0">Profile Settings</h1>
+          <div className='flex gap-3'>
+            <button onClick={logout} className="btn btn-sm btn-outline btn-info flex items-center gap-1 px-3">
+              <LogOutIcon size="1rem"/>
+              <span>Logout</span>
+            </button>
+            <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm btn-error flex items-center gap-1 px-3">
+              <User2 size="1rem"/>
+              <span>Delete Account</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-8">
           {/* Profile Picture Section */}
           <div className="flex flex-col items-center justify-center space-y-4">
             <div className="relative group">
-              <div className={ `w-44 h-44 rounded-full overflow-hidden flex items-center justify-center ${getRandomColor(authUser._id)}`}>
+              <div className={`w-44 h-44 rounded-full overflow-hidden flex items-center justify-center ${getRandomColor(authUser._id)}`}>
                 {profileImage.previewUrl || authUser?.profilePic ? (
                   <img
                     src={profileImage.previewUrl || authUser?.profilePic}
@@ -137,11 +176,11 @@ const Profile = () => {
           </div>
 
           {/* Profile Details Section */}
-          <form onSubmit={handleSubmit} className="space-y-6 justify-center flex flex-col items-center">
-            <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6 justify-center flex flex-col items-center w-full">
+            <div className="space-y-4 w-full">
               <div>
                 <label className="block text-sm font-medium mb-2 font-work-sans">Full Name</label>
-                <div className="input validator w-[20rem]">
+                <div className="input validator w-full">
                   <User className="h-[1.1em] opacity-50" />
                   <input
                     type="text"
@@ -158,7 +197,7 @@ const Profile = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2 font-work-sans">Email</label>
-                <div className="input validator">
+                <div className="input validator w-full">
                   <Mail className="h-[1.1em] opacity-50" />
                   <input
                     type="email"
@@ -168,31 +207,82 @@ const Profile = () => {
                   />
                 </div>
               </div>
-
-              {/* Status Section */}
-             
             </div>
-
-            <button
-              type="submit"
-              className="btn btn-info w-full md:w-[70%] px-10"
-              disabled={isUpdatingProfile}
-            >
-              {isUpdatingProfile ? (
-                <>
-                  <Loader2 className="size-5 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                "Update Profile"
-              )}
-            </button>
+          
+            <div className="flex flex-col w-full gap-4">
+              <button
+                type="submit"
+                className="btn btn-info w-full"
+                disabled={isUpdatingProfile}
+              >
+                {isUpdatingProfile ? (
+                  <>
+                    <Loader2 className="size-5 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Profile"
+                )}
+              </button>
+            </div>
           </form>
         </div>
       </div>
+      
+      {/* Delete Account Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <motion.div
+            variants={modalVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              variants={modalVariants} // Nested animation for the inner card
+              className="bg-base-100 rounded-lg shadow-lg max-w-md w-full p-6 relative"
+            >
+              <button 
+                onClick={() => setShowDeleteModal(false)} 
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+              
+              <div className="flex flex-col items-center text-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="text-red-500" size={24} />
+                </div>
+                <h3 className="text-xl font-bold font-work-sans">Delete Account</h3>
+                <p className="text-gray-600 font-poppins">
+                  Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+                </p>
+              </div>
+              
+              <div className="flex gap-3 justify-center">
+                <button 
+                  onClick={() => setShowDeleteModal(false)} 
+                  className="btn btn-outline"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    DeleteAccount();
+                    setShowDeleteModal(false);
+                  }} 
+                  className="btn btn-error"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
 export default Profile;
-

@@ -232,3 +232,26 @@ export const CheckEmail = async (req, res) => {
      return res.status(500).json({ message: "Internal server error" });
    }
 }
+export const Delete = async (req, res) => {
+    try {
+        const userId = req.user._id; // From JWT
+        const userToDelete = await User.findById(userId);
+        
+        if (!userToDelete) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        await User.findByIdAndDelete(userId);
+        
+        // Emit socket event if needed
+        const io = req.app.get('io');
+        if (io) {
+            io.emit('user-deleted', { userId });
+        }
+
+        return res.status(200).json({ message: "User deleted successfully" });
+    } catch (error) {
+        console.error("Error in Delete controller:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
