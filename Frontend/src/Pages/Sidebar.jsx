@@ -1,9 +1,26 @@
 import { useEffect, useState, useMemo } from "react";
 import ChatStore from "../store/useChatStore.js";
 import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
-import { Plus, Users } from "lucide-react";
+import { Plus, User, Users } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 
+const UserStatus = ({ userId }) => {
+  const { users, formatLastOnline, onlineUsers } = ChatStore();
+  const user = users.find(u => u._id === userId);
+  
+  if (!user) return null;
+
+  return (
+    <p className='text-xs whitespace-nowrap text-right'>
+      {onlineUsers.includes(userId) 
+        ? "Online now"
+        : user.lastOnline 
+          ? `${formatLastOnline(user.lastOnline)}`
+          : "Never online"
+      }
+    </p>
+  );
+};
 // Define an array of background color classes
 const Colors = [
   "bg-blue-500",
@@ -24,7 +41,8 @@ const Sidebar = () => {
     setSelectedUser, 
     isUserLoading,
     onlineUsers,
-    unreadCounts, // Get unread counts from store
+    conversations, // Make sure to include this
+    unreadCounts,
     initializeSocketListeners
   } = ChatStore();
   
@@ -61,6 +79,16 @@ const Sidebar = () => {
 
   if (isUserLoading) return <SidebarSkeleton />;
 
+  // Function to get the last message for a user
+  const getLastMessage = (userId) => {
+    if (!conversations || !conversations[userId] || conversations[userId].length === 0) {
+      return onlineUsers.includes(userId) ? "Online" : "Offline";
+    }
+    
+    const lastMsg = conversations[userId][conversations[userId].length - 1];
+    return lastMsg.content || "No content";
+  };
+
   return (
     <aside className="h-full w-20 lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200 font-work-sans relative">
       {/* Header Section */}
@@ -96,39 +124,53 @@ const Sidebar = () => {
                 ${SelectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
               `}
             >
-              <div className="relative mx-auto lg:mx-0 my-2">
+              {/* Avatar with status indicators */}
+              <div className="relative flex-shrink-0 mx-auto lg:mx-0">
                 {
-                 user.profilePic? (
+                 user.profilePic ? (
                   <img
                     src={user.profilePic}
                     alt={user.fullName}
                     className="w-10 h-10 rounded-full object-cover" 
                   />
-                 ):(
+                 ) : (
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${getRandomColor(user._id)}`}>
                     <span className="text-xl text-white">{user.fullName?.charAt(0).toUpperCase()}</span>
                   </div> 
                  )
                 }
               
+                {/* Online status indicator */}
                 {onlineUsers.includes(user._id) ? (
-                  <span className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-zinc-900">
-                  </span>):(
-                  <span className="absolute bottom-0 right-0 size-3 bg-zinc-900 rounded-full ring-2 ring-zinc-900"/>
-                  )}
+                  <span className="absolute bottom-0 right-0 size-3 bg-green-500 rounded-full ring-2 ring-base-100"></span>
+                ) : (
+                  <span className="absolute bottom-0 right-0 size-3 bg-zinc-500 rounded-full ring-2 ring-base-100"></span>
+                )}
                 
                 {/* Show unread message count */}
                 {unreadCounts[user._id] > 0 && (
-                  <span className="absolute top-0 right-0 min-w-5 h-5 bg-red-500 rounded-full ring-2 ring-zinc-900 text-white text-xs flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 rounded-full ring-1 ring-base-100 text-white text-xs flex items-center justify-center px-1">
                     {unreadCounts[user._id] > 9 ? '9+' : unreadCounts[user._id]}
                   </span>
                 )}
               </div>
 
-              <div className="hidden lg:block text-left min-w-0">
-                <div className="font-medium truncate">{user.fullName}</div>
-                <div className="text-sm text-zinc-400">
-                  {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+              {/* User info - only visible on larger screens */}
+              <div className="hidden lg:block text-left min-w-0 flex-1 overflow-hidden">
+                <div className="flex justify-between items-center w-full mb-1">
+                  <p className="font-medium truncate mr-2">{user.fullName}</p>
+                  <div className="flex-shrink-0 text-right">
+                    {
+                      onlineUsers.includes(user._id) ? (
+                        <span className="text-xs text-green-500 whitespace-nowrap">Online</span>
+                      ) : (
+                        <UserStatus userId={user._id} />
+                      )
+                    }
+                  </div>
+                </div>
+                <div className="text-sm text-zinc-400 truncate">
+                  {getLastMessage(user._id)}
                 </div>
                 
                 {/* Show unread message count for larger screens */}
@@ -145,7 +187,6 @@ const Sidebar = () => {
             {showOnlineOnly ? "No online users" : "No users found"}
           </div>
         )}
-      
       </div>
     </aside>
   );

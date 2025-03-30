@@ -30,11 +30,7 @@ const Colors = [
   "bg-indigo-500",
   "bg-teal-500",
 ];
-function getRandomColor(userId) {
-  // Use the user ID to get a consistent color for each user
-  const index = userId.charCodeAt(0) % Colors.length;
-  return Colors[index];
-}
+
 const ChatContainer = () => {
   const { 
     SelectedUser, 
@@ -69,7 +65,11 @@ const ChatContainer = () => {
       messageEndRef.current.scrollIntoView({ behavior });
     }
   }, []);
-  
+  function getRandomColor(userId) {
+    // Use the user ID to get a consistent color for each user
+    const index = userId.charCodeAt(0) % Colors.length;
+    return Colors[index];
+  }
   // Function to load more messages
   const loadMoreMessages = useCallback(async () => {
     if (!SelectedUser || isLoadingMoreMessages || !hasMore) return;

@@ -7,6 +7,7 @@ import { Toaster } from "react-hot-toast";
 import { LuEye } from "react-icons/lu";
 import { LuEyeOff } from "react-icons/lu";
 import { Link } from "react-router-dom";
+import { IoKeyOutline } from "react-icons/io5";
 const Login = () => {
   const { login,isLoggingin} = useAuthStore();
   const [formData, setFormData] = useState({
@@ -74,10 +75,10 @@ const Login = () => {
           },
         }}
       />
-      <div className='grid grid-cols-1 lg:grid-cols-2 h-screen'>
-        <div className="right flex w-full justify-center items-center flex-col gap-7">
+      <div className='grid grid-cols-1 lg:grid-cols-2 min-h-screen max-h-screen overflow-hidden'>
+        <div className="right flex w-full justify-center items-center flex-col gap-5 py-4 overflow-y-auto">
           <Logo Title="Welcome Back!" Content="Sign in to your account"/> 
-          <form className=" w-full flex justify-center items-center flex-col gap-5 lg:w-[80%] md:w-[80%]" onSubmit={handleSubmit}>
+          <form className="w-full flex justify-center items-center flex-col gap-4 px-4 lg:w-[80%] md:w-[80%]" onSubmit={handleSubmit}>
             <label className="input validator flex items-center gap-3 w-[60%]">
               <svg className="h-[1.1em] text-primary" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g strokeLinejoin="round" strokeLinecap="round" strokeWidth="2.5" fill="none" stroke="currentColor"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></g></svg>
               <input type="email" 
@@ -91,7 +92,7 @@ const Login = () => {
               />
             </label>
             <label className="input validator flex items-center gap-3 w-[60%]">
-              <img src="public/assets/key.svg" alt="key" className="h-[1em] opacity-50 invert-40" />
+              <IoKeyOutline className="h-[1.1rem] text-primary" />
               <input 
                 type={showPassword ? "text" : "password"} 
                 required  
@@ -130,7 +131,7 @@ const Login = () => {
             Don't have an account? <Link to="/signup" className="text-blue-500  hover:underline">Sign up</Link>
           </p>
         </div>
-        <div className={!mobile?"flex w-full p-5 mt-7":"hidden"}>
+        <div className={!mobile ? "flex w-full p-5 overflow-hidden" : "hidden"}>
           <AuthImagePattern
             title="Join  community"
             subtitle="Connect with friends, share moments, and stay in touch with your loved ones."

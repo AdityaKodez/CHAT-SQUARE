@@ -103,7 +103,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen pt-20 pb-10 px-8 md:px-8">
+    <div className="min-h-screen pt-20 px-4">
       <Toaster
         position="top-right"
         hideProgressBar={false}
@@ -132,7 +132,7 @@ const Profile = () => {
               <LogOutIcon size="1rem"/>
               <span>Logout</span>
             </button>
-            <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm btn-error flex items-center gap-1 px-3">
+            <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm btn-soft btn-error flex items-center gap-1 px-3">
               <User2 size="1rem"/>
               <span>Delete Account</span>
             </button>
