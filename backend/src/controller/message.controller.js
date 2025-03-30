@@ -6,7 +6,7 @@ export const getUserForSidebar = async (req, res) => {
     try {
         const LoggedInUserId = req.user._id;
         const FilteredUser = await User.find({ _id: { $ne: LoggedInUserId } })
-            .select("username fullName _id timestamps profilePic lastOnline") // Add lastOnline here
+            .select("username fullName _id timestamps profilePic lastOnline description") // Add lastOnline here
         res.status(200).json(FilteredUser);
     } catch (error) {
         console.log(error);

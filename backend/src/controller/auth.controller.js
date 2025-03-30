@@ -125,57 +125,75 @@ export const logout = async (req,res) => {
 
 
 export const updateProfile = async (req, res) => {
-   try {
-     const { profilePic, fullName } = req.body;
-     const userId = req.user._id;
-     if (!profilePic || !fullName) {
-       return res.status(400).json({ message: "Profile picture and full name are required" });
-     }
- 
-     // Find user
-     const user = await User.findById(userId);
-     if (!user) {
-       return res.status(404).json({ message: "User not found" });
-     }
- 
-     // Upload to Cloudinary
-     const uploadResponse = await cloudinary.uploader.upload(profilePic, {
-       folder: 'profile_pictures',
-     });
- 
-     // Update user
-     user.profilePic = uploadResponse.secure_url;
-     user.fullName = fullName;
-     await user.save();
- 
-     // Get the updated user data
-     const updatedUser = await User.findById(userId).select("-password");
-     
-     // Emit a socket event to notify other users
-     const io = req.app.get('io');
-     if (io) {
-       io.emit('user-updated', {
-         userId: updatedUser._id,
-         updatedData: {
-           fullName: updatedUser.fullName,
-           profilePic: updatedUser.profilePic
-         }
-       });
-       console.log("Emitted user-updated event for user:", updatedUser._id);
-     }
-     
-     // Send response (only once)
-     return res.status(200).json({
-       _id: updatedUser._id,
-       fullName: updatedUser.fullName,
-       email: updatedUser.email,
-       profilePic: updatedUser.profilePic,
-       lastOnline: updatedUser.lastOnline,
-     });
-   } catch (error) {
-     console.error("Error updating profile:", error);
-     return res.status(500).json({ message: "Internal server error" });
-   }
+  try {
+    const { fullName, profilePic, description } = req.body;
+    const userId = req.user._id;
+
+    // Validate input
+    if (!fullName) {
+      return res.status(400).json({ error: "Full name is required" });
+    }
+
+    // Find user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update user fields
+    user.fullName = fullName;
+    
+    // Handle description (if provided)
+    if (description !== undefined) {
+      user.description = description;
+    }
+
+    // Handle profile picture upload if provided
+    if (profilePic) {
+      if (profilePic.startsWith("data:image")) {
+        // If user already has a profile pic, delete the old one
+        if (user.profilePic && user.profilePic.includes("cloudinary")) {
+          const publicId = user.profilePic.split("/").pop().split(".")[0];
+          await cloudinary.uploader.destroy(publicId); /* this is used for destroying the old image from cloudinary */
+        }
+
+        // Upload new image
+        const result = await cloudinary.uploader.upload(profilePic, {
+          folder: "chatty_profile_pics",
+          width: 500,
+          crop: "scale",
+        });
+
+        user.profilePic = result.secure_url;
+      }
+    }
+
+    // Save updated user
+    await user.save();
+
+    // Get the io instance
+    const io = req.app.get('io');
+    if (io) {
+      // Emit user-updated event to all connected clients
+      io.emit('user-updated', {
+        userId: user._id.toString(),
+        updatedData: {
+          fullName: user.fullName,
+          profilePic: user.profilePic,
+          description: user.description
+        }
+      });
+    }
+
+    // Return updated user without password
+    const userWithoutPassword = { ...user.toObject() };
+    delete userWithoutPassword.password;
+
+    res.status(200).json(userWithoutPassword);
+  } catch (error) {
+    console.error("Error in updateProfile:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
 };
 export const checkAuth  = (req,res)=>{
    try {

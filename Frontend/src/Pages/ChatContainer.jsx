@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Send, Trash2, Loader2 } from 'lucide-react';
+import { Send, Trash2, Loader2, Info, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
@@ -59,6 +60,7 @@ const ChatContainer = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [showProfileModal, setShowProfileModal] = useState(false);
     // Improved scroll to bottom function
   const scrollToBottom = useCallback((behavior = "smooth") => {
     if (messageEndRef.current) {
@@ -284,23 +286,40 @@ const ChatContainer = () => {
         <div className="flex items-center gap-3">
           {
             SelectedUser.profilePic ? 
-              <img 
-                src={SelectedUser.profilePic} 
-                alt={userFullName} 
-                className="w-10 h-10 rounded-lg object-cover" 
-              /> : 
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-content font-medium ${getRandomColor(SelectedUser._id)}`}>
+              <button 
+                onClick={() => setShowProfileModal(true)}
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+              >
+                <img 
+                  src={SelectedUser.profilePic} 
+                  alt={userFullName} 
+                  className="w-10 h-10 rounded-lg object-cover" 
+                /> 
+              </button> : 
+              <button 
+                onClick={() => setShowProfileModal(true)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-content font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}
+              >
                 {userFirstInitial}
-              </div>
+              </button>
           }
-          <div className='flex-1 flex justify-between items-center'>
-            <h3 className="font-medium text-sm">{userFullName}</h3>
-            <div className="ml-auto">
-              {
-                onlineUsers.includes(SelectedUser._id) ? 
-                  <span className="text-xs text-success">Online</span> : 
-                  <UserStatus userId={SelectedUser._id} />
-              }
+          <div className='flex-1 flex flex-col'>
+            <div className='flex justify-between items-center w-full'>
+              <h3 className="font-medium text-sm">{userFullName}</h3>
+              <div className="ml-auto flex items-center gap-3">
+                <button 
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-primary hover:text-primary-focus transition-colors"
+                  title="View profile"
+                >
+                  <Info size={16} />
+                </button>
+                {
+                  onlineUsers.includes(SelectedUser._id) ? 
+                    <span className="text-xs text-success">Online</span> : 
+                    <UserStatus userId={SelectedUser._id} />
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -414,6 +433,86 @@ const ChatContainer = () => {
           </button>
         </div>
       </form>
+
+      {/* User Profile Modal */}
+      <AnimatePresence>
+        {showProfileModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowProfileModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-base-100 rounded-xl shadow-xl max-w-md w-full p-6 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="absolute top-4 right-4 text-base-content/70 hover:text-base-content"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex flex-col items-center text-center">
+                {/* User Avatar */}
+                <div className="mb-4">
+                  {SelectedUser.profilePic ? (
+                    <img
+                      src={SelectedUser.profilePic}
+                      alt={SelectedUser.fullName}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-primary/20"
+                    />
+                  ) : (
+                    <div
+                      className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(
+                        SelectedUser._id
+                      )}`}
+                    >
+                      {SelectedUser.fullName?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                {/* User Name and Status */}
+                <h3 className="text-xl font-bold mb-1">{SelectedUser.fullName}</h3>
+                <div className="mb-4">
+                  {onlineUsers.includes(SelectedUser._id) ? (
+                    <span className="text-sm text-success flex items-center justify-center gap-1">
+                      <span className="w-2 h-2 bg-success rounded-full"></span>
+                      Online now
+                    </span>
+                  ) : (
+                    <UserStatus userId={SelectedUser._id} />
+                  )}
+                </div>
+
+                {/* User Description */}
+                {SelectedUser.description && (
+                  <div className="mb-6 max-w-xs">
+                    <h4 className="text-sm font-medium mb-2 text-base-content/70">About</h4>
+                    <p className="text-sm">{SelectedUser.description}</p>
+                  </div>
+                )}
+
+                {/* User Email */}
+                {SelectedUser.email && (
+                  <div className="text-sm text-base-content/70">
+                    <span className="font-medium">Email: </span>
+                    {SelectedUser.email}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

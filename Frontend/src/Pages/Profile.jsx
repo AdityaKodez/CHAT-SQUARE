@@ -6,6 +6,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Profile = () => {
   const { authUser, isUpdatingProfile, updateProfile, logout, DeleteAccount } = useAuthStore();
+  const [charCount, setCharCount] = useState(authUser?.description?.length || 0);
+  const MAX_CHARS = 100;
+  
+  const handleTextareaChange = (e) => {
+    const text = e.target.value;
+    
+    if (text.length <= MAX_CHARS) {
+      setCharCount(text.length);
+      setProfileUpdate(prev => ({
+        ...prev,
+        description: text
+      }));
+    }
+  };
   
   // State to control delete account confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -13,7 +27,8 @@ const Profile = () => {
   const [profileUpdate, setProfileUpdate] = useState({
     fullName: authUser?.fullName,
     profilePic: null,
-    status: authUser?.status || "offline" // Default to offline
+    status: authUser?.status || "offline", // Default to offline
+    description: authUser?.description || ""
   });
 
   const [profileImage, setProfileImage] = useState({
@@ -65,7 +80,8 @@ const Profile = () => {
       await updateProfile({
         fullName: profileUpdate.fullName,
         profilePic: profileImage.previewUrl,
-        status: profileUpdate.status
+        status: profileUpdate.status,
+        description: profileUpdate.description
       });
       
       toast.success("Profile updated successfully!");
@@ -207,7 +223,22 @@ const Profile = () => {
                   />
                 </div>
               </div>
-            </div>
+              <div>
+                <label className='block text-sm font-medium mb-2 font-work-sans'>Description</label>
+                <textarea
+                  value={profileUpdate.description}
+                  onChange={handleTextareaChange}
+                  className="textarea resize-none textarea-bordered w-full h-20 font-work-sans"
+                  placeholder="Tell us about yourself..."
+                  maxLength={MAX_CHARS}
+                ></textarea>
+                <div className="flex justify-end mt-2 font-poppins">
+                  <p className={`text-xs ${charCount >= MAX_CHARS ? 'text-error' : 'text-base-content/60'}`}>
+                    {charCount}/{MAX_CHARS} characters
+                  </p>
+                </div>
+              </div>
+            </div> 
           
             <div className="flex flex-col w-full gap-4">
               <button

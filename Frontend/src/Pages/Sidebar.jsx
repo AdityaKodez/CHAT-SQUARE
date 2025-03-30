@@ -120,7 +120,7 @@ const Sidebar = () => {
               onClick={() => setSelectedUser(user)}
               className={`
                 w-full p-3 flex items-center gap-3
-                hover:bg-base-300 transition-colors
+                hover:bg-base-300 transition-colors group
                 ${SelectedUser?._id === user._id ? "bg-base-300 ring-1 ring-base-300" : ""}
               `}
             >
@@ -172,6 +172,7 @@ const Sidebar = () => {
                 <div className="text-sm text-zinc-400 truncate">
                   {getLastMessage(user._id)}
                 </div>
+              
                 
                 {/* Show unread message count for larger screens */}
                 {unreadCounts[user._id] > 0 && (
