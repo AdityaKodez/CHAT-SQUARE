@@ -244,3 +244,51 @@ export const DeleteMessage = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+export const getAllConversations = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    // Find all messages where the user is either sender or receiver
+    const messages = await Message.find({
+      $or: [
+        { sender: userId },
+        { receiver: userId }
+      ]
+    }).populate('sender receiver');
+
+    // Group messages by conversation
+    const conversations = {};
+    const unreadCounts = {};
+
+    messages.forEach(msg => {
+      const otherUserId = msg.sender._id.toString() === userId.toString() 
+        ? msg.receiver._id.toString()
+        : msg.sender._id.toString();
+
+      if (!conversations[otherUserId]) {
+        conversations[otherUserId] = [];
+      }
+      conversations[otherUserId].push(msg);
+
+      // Count unread messages
+      if (!msg.isRead && msg.sender._id.toString() !== userId.toString()) {
+        unreadCounts[otherUserId] = (unreadCounts[otherUserId] || 0) + 1;
+      }
+    });
+
+    // Format the response
+    const formattedConversations = Object.entries(conversations).map(([userId, messages]) => ({
+      userId,
+      messages: messages.sort((a, b) => a.createdAt - b.createdAt)
+    }));
+
+    res.status(200).json({
+      conversations: formattedConversations,
+      unreadCounts
+    });
+  } catch (error) {
+    console.error("Error fetching all conversations:", error);
+    res.status(500).json({ message: "Error fetching conversations" });
+  }
+};

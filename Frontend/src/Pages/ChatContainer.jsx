@@ -38,16 +38,17 @@ const ChatContainer = () => {
     onlineUsers,
     sendMessage,
     isMessageLoading,
-    // Add this with your other state declarations
     getMessages,
     handleNewMessage,
     DeleteMessage,
+    typingUsers,
+    sendTypingStatus
   } = ChatStore();
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
   
-  // Get messages for current conversation only - with safe access using useMemo
+
   const messages = useMemo(() => {
     return SelectedUser && SelectedUser._id ? (conversations[SelectedUser._id] || []) : [];
   }, [SelectedUser, conversations]);
@@ -60,7 +61,7 @@ const ChatContainer = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
-    // Improved scroll to bottom function
+  
   const scrollToBottom = useCallback((behavior = "smooth") => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior });
@@ -93,15 +94,12 @@ const ChatContainer = () => {
     const container = messagesContainerRef.current;
     if (!container) return;
     
-    // Store the current scroll height and position before loading more messages
+    // Store the current scroll height 
     const prevScrollHeight = container.scrollHeight;
     const prevScrollTop = container.scrollTop;
     
     try {
-      // Instead of using set directly, use the store's function or state
-      // set({ isLoadingMoreMessages: true }); <- This is causing the error
-      
-      // Use a local state variable instead
+     
       setIsLoadingMoreMessages(true);
       
       const nextPage = currentPage + 1;
@@ -181,60 +179,46 @@ const ChatContainer = () => {
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
   
-  function HandleInputChange(e) {
-    const content = e.target.value;
-    if (!socket || !SelectedUser) return;
-    
-    // Set typing state to true
-    if (!isTyping && content.trim().length > 0) {
+  // Handle input changes for typing indicator
+  const handleInputChange = (e) => {
+    if (!isTyping) {
       setIsTyping(true);
-      socket.emit("typing", {
+      sendTypingStatus({ 
         to: SelectedUser._id,
-        isTyping: true
-      });
-    } else if (isTyping && content.trim().length === 0) {
-      // If the input is now empty, immediately set typing to false
-      setIsTyping(false);
-      socket.emit("typing", {
-        to: SelectedUser._id,
-        isTyping: false
+        isTyping: true 
       });
     }
-    
-    // Clear any existing timeout
+
+    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
-    // Set a new timeout
+
+    // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
-      if (isTyping) {
-        setIsTyping(false);
-        socket.emit("typing", {
-          to: SelectedUser._id,
-          isTyping: false
-        });
-      }
-    }, 3000);
-  }
-  
-  // Clean up the timeout when component unmounts or user changes
+      setIsTyping(false);
+      sendTypingStatus({ 
+        to: SelectedUser._id,
+        isTyping: false 
+      });
+    }, 2000);
+  };
+
+  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      
-      // Also clear typing status when changing users or unmounting
-      if (socket && SelectedUser && isTyping) {
-        socket.emit("typing", {
+      // Clear typing status when leaving chat
+      if (SelectedUser?._id) {
+        sendTypingStatus({ 
           to: SelectedUser._id,
-          isTyping: false
+          isTyping: false 
         });
-        setIsTyping(false);
       }
     };
-  }, [socket, SelectedUser, isTyping]);
+  }, [SelectedUser]);
 
   // Handle socket events
   useEffect(() => {
@@ -335,7 +319,7 @@ const ChatContainer = () => {
               </button> : 
               <button 
                 onClick={() => setShowProfileModal(true)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-primary-content font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}
               >
                 {userFirstInitial}
               </button>
@@ -455,6 +439,13 @@ const ChatContainer = () => {
         )}
       </div>
 
+      {/* Show typing indicator only for selected user */}
+      {typingUsers[SelectedUser?._id] && (
+        <div className="text-sm text-gray-500 italic ml-4 mb-2">
+          {SelectedUser.fullName} is typing...
+        </div>
+      )}
+
       {/* Message Input with updated submit handler */}
       <form 
         className="p-3 border-t border-base-300 bg-base-100"
@@ -466,7 +457,7 @@ const ChatContainer = () => {
             name="message"
             placeholder="Type a message..."
             className="input input-bordered flex-1 text-sm"
-            onChange={HandleInputChange}
+            onChange={handleInputChange}
             autoComplete="off"
           />
           <button

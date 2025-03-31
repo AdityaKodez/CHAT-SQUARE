@@ -65,14 +65,16 @@ export const useAuthStore = create((set, get) => ({
   connectSocket: async function() {
     const { authUser, socket } = get();
     if (!authUser) return;
-    if (socket?.connected) return;
+    if (socket?.connected) return; // Only return if already connected
 
     try {
       const newSocket = io(SOCKET_BASE_URL, {
-        reconnectionAttempts: 5,
+        reconnectionAttempts: 10, // Increase reconnection attempts
         reconnectionDelay: 1000,
         timeout: 20000,
-        transports: ['websocket', 'polling']
+        transports: ['websocket', 'polling'],
+        autoConnect: true, // Ensure auto-connect is enabled
+        forceNew: false // Don't force a new connection each time
       });
       
       newSocket.on("connect", () => {
@@ -81,10 +83,25 @@ export const useAuthStore = create((set, get) => ({
         newSocket.emit("setup", authUser._id);
         set({ socket: newSocket });
       });
-
+  
+      // Add a ping mechanism to keep the connection alive
+      const pingInterval = setInterval(() => {
+        if (newSocket.connected) {
+          newSocket.emit("ping");
+        }
+      }, 25000); // Ping every 25 seconds
+  
       newSocket.on("disconnect", () => {
         console.log("Disconnected from socket server");
-        set({ socket: null });
+        // Don't set socket to null here, let it reconnect
+        // set({ socket: null });
+        
+        // Try to reconnect manually after a short delay
+        setTimeout(() => {
+          if (!newSocket.connected) {
+            newSocket.connect();
+          }
+        }, 2000);
       });
 
       newSocket.on("error", (error) => {
@@ -115,11 +132,17 @@ export const useAuthStore = create((set, get) => ({
   },
 
   disconnectSocket: function() {
-    const { socket } = get();
+    const { socket, socketPingInterval } = get();
+    
+    // Clear the ping interval if it exists
+    if (socketPingInterval) {
+      clearInterval(socketPingInterval);
+    }
+    
     if (socket) {
       socket.off(); // Remove all listeners first
       socket.disconnect();
-      set({ socket: null });
+      set({ socket: null, socketPingInterval: null });
     }
   },
 

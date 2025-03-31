@@ -51,19 +51,14 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("typing", ({to, isTyping}) => {
+    socket.on("typing", ({to, isTyping, from}) => {
         const recipientSocket = userSockets.get(to);
         if(recipientSocket) {
-            // Send typing status with sender's userId, not socket.id
-            const senderId = [...userSockets.entries()]
-                .find(([_, socketId]) => socketId === socket.id)?.[0];
-                
+            // Send typing status with sender's userId
             socket.to(recipientSocket).emit("typing", {
-                from: senderId, // Use actual userId instead of socket.id
+                from, // Use the explicitly provided sender ID
                 isTyping,
             });
-
-            console.log(`typing, ${isTyping}`);
         }
     });
 

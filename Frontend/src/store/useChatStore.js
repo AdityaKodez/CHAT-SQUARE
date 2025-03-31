@@ -20,6 +20,7 @@ const ChatStore = create((set, get) => ({
   lastOnline:null,
   isMessageLoading: false,
   isSendingMessage: false,
+  typingUsers: {}, // Track typing status per conversation
 
   // Add this method to update online users
   setOnlineUsers: (onlineUserIds) => {
@@ -39,6 +40,20 @@ const ChatStore = create((set, get) => ({
   initializeSocketListeners: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
+    
+    // Remove existing listeners first to prevent duplicates
+    socket.off("global_message").off("global_message_deleted").off("online-users").off("typing");
+    
+    // Listen for global messages
+    socket.on("global_message", (message) => {
+      console.log("Received global message:", message);
+      // Check if message already exists before handling
+      const state = get();
+      const messageExists = state.globalMessages.some(msg => msg._id === message._id);
+      if (!messageExists) {
+        get().handleNewGlobalMessage(message);
+      }
+    });
     
     // Listen for online users updates
     socket.on("online-users", (onlineUserIds) => {
@@ -89,12 +104,6 @@ const ChatStore = create((set, get) => ({
       });
     });
     
-    // Listen for global messages
-    socket.on("global_message", (message) => {
-      console.log("Received global message:", message);
-      get().handleNewGlobalMessage(message);
-    });
-    
     // Listen for global message deletion
     socket.on("global_message_deleted", ({ messageId }) => {
       console.log("Global message deleted:", messageId);
@@ -102,8 +111,45 @@ const ChatStore = create((set, get) => ({
         globalMessages: state.globalMessages.filter(message => message._id !== messageId)
       }));
     });
-  }
-,
+
+    socket.on("private_message", (message) => {
+      const state = get();
+      const conversationId = message.sender._id;
+      const existingMessages = state.conversations[conversationId] || [];
+      const messageExists = existingMessages.some(msg => msg._id === message._id);
+      
+      if (!messageExists) {
+        set((state) => {
+          const updatedConversations = {
+            ...state.conversations,
+            [conversationId]: [
+              ...(state.conversations[conversationId] || []),
+              {
+                ...message,
+                isRead: state.SelectedUser?._id === message.sender._id
+              }
+            ]
+          };
+
+          // Update unread counts
+          const newUnreadCounts = { ...state.unreadCounts };
+          if (!state.SelectedUser || state.SelectedUser._id !== message.sender._id) {
+            newUnreadCounts[message.sender._id] = (newUnreadCounts[message.sender._id] || 0) + 1;
+          }
+
+          return {
+            conversations: updatedConversations,
+            unreadCounts: newUnreadCounts
+          };
+        });
+
+        // Show notification for new message if it's not from the current user
+        if (message.sender._id !== useAuthStore.getState().authUser?._id) {
+          toast.success(`New message from ${message.sender.name}`);
+        }
+      }
+    });
+  },
   // Add this method to format last online time
   formatLastOnline: (lastOnlineDate) => {
     if (!lastOnlineDate) return "Never";
@@ -233,9 +279,20 @@ const ChatStore = create((set, get) => ({
   // In your handleNewMessage method
   handleNewMessage: function(message) {
     set((state) => {
-      // Get the conversation ID (either sender or recipient depending on who sent it)
-      const conversationId = message.sender === state.authUser?._id ? 
+      const conversationId = message.sender === useAuthStore.getState().authUser?._id ? 
         message.recipient : message.sender;
+      
+      const isIncomingMessage = message.sender !== useAuthStore.getState().authUser?._id;
+      
+      // Update condition to consider message.isRead status
+      const shouldIncrementUnread = isIncomingMessage && 
+        (!state.SelectedUser || state.SelectedUser._id !== message.sender) &&
+        !message.isRead;
+      
+      const newUnreadCounts = { ...state.unreadCounts };
+      if (shouldIncrementUnread) {
+        newUnreadCounts[message.sender] = (newUnreadCounts[message.sender] || 0) + 1;
+      }
       
       // Only update if we have this conversation in our state
       if (state.conversations[conversationId]) {
@@ -246,9 +303,17 @@ const ChatStore = create((set, get) => ({
               ...(state.conversations[conversationId] || []),
               message
             ]
-          }
+          },
+          unreadCounts: newUnreadCounts
         };
       }
+      
+      // If we don't have the conversation yet but it's an incoming message,
+      // still update the unread counts
+      if (shouldIncrementUnread) {
+        return { unreadCounts: newUnreadCounts };
+      }
+      
       return state;
     });
   },
@@ -260,30 +325,55 @@ unreadCounts: {}, // Store unread message counts per user
 // Add a method to reset unread count when selecting a user
 setSelectedUser: function(selectedUser) {
   set((state) => {
-    // Reset unread count for this user
-    const newUnreadCounts = { ...state.unreadCounts };
     if (selectedUser && selectedUser._id) {
-      newUnreadCounts[selectedUser._id] = 0;
+      const conversationMessages = state.conversations[selectedUser._id] || [];
+      const unreadMessages = conversationMessages.filter(
+        msg => !msg.isRead && msg.sender._id === selectedUser._id
+      );
+
+      // Mark messages as read in backend
+      unreadMessages.forEach(msg => {
+        axiosInstance.put(`/message/${msg._id}/read`);
+      });
+
+      // Update local state
+      return {
+        SelectedUser: selectedUser,
+        globalChatSelected: false,
+        conversations: {
+          ...state.conversations,
+          [selectedUser._id]: conversationMessages.map(msg => ({
+            ...msg,
+            isRead: msg.sender._id === selectedUser._id ? true : msg.isRead
+          }))
+        },
+        unreadCounts: {
+          ...state.unreadCounts,
+          [selectedUser._id]: 0
+        }
+      };
     }
     
-    return { 
+    return {
       SelectedUser: selectedUser,
-      unreadCounts: newUnreadCounts,
-      globalChatSelected: false // Set global chat to false when selecting a user
+      globalChatSelected: false
     };
   });
-  
-  // If a user is selected, fetch their messages
-  if (selectedUser && selectedUser._id) {
-    get().getMessages({ userId: selectedUser._id });
-  }
 },
 
 // Method to select global chat
+
 setGlobalChatSelected: function() {
-  set({ 
-    SelectedUser: null,
-    globalChatSelected: true 
+  set((state) => {
+    // Reset unread count for global chat
+    const newUnreadCounts = { ...state.unreadCounts };
+    newUnreadCounts["global"] = 0;
+    
+    return { 
+      SelectedUser: null,
+      globalChatSelected: true,
+      unreadCounts: newUnreadCounts
+    };
   });
   
   // Load global messages when selecting global chat
@@ -331,9 +421,29 @@ getGlobalMessages: async function({ page = 1, limit = 20 }) {
 
 // Handle new global message
 handleNewGlobalMessage: function(message) {
-  set((state) => ({
-    globalMessages: [...(state.globalMessages || []), message]
-  }));
+  set((state) => {
+    // Check if this is an incoming message (not sent by the current user)
+    const isIncomingMessage = message.sender._id !== useAuthStore.getState().authUser?._id;
+    const isGlobalChatNotSelected = !state.globalChatSelected;
+    
+    // Check for duplicate message first
+    const isDuplicate = state.globalMessages.some(msg => msg._id === message._id);
+    if (isDuplicate) {
+      return state;
+    }
+    
+    // Update unread counts for global chat if needed
+    const newUnreadCounts = { ...state.unreadCounts };
+    if (isIncomingMessage && isGlobalChatNotSelected) {
+      // Ensure we're only incrementing by 1
+      newUnreadCounts["global"] = (state.unreadCounts["global"] || 0) + 1;
+    }
+    
+    return {
+      globalMessages: [...state.globalMessages, message],
+      unreadCounts: newUnreadCounts
+    };
+  });
 },
 
 // Send global message
@@ -480,6 +590,26 @@ deleteGlobalMessage: async function(messageId) {
      console.error("Error deleting message:", error);
      toast.error("Error deleting message");
      throw error; 
+   }
+ },
+
+ // Add this to your ChatStore
+ fetchAllConversations: async function() {
+   try {
+     const res = await axiosInstance.get('/message/all-conversations');
+     set((state) => ({
+       conversations: res.data.conversations.reduce((acc, conv) => {
+         acc[conv.userId] = conv.messages.map(msg => ({
+           ...msg,
+           isRead: msg.isRead || false
+         }));
+         return acc;
+       }, {}),
+       unreadCounts: res.data.unreadCounts
+     }));
+   } catch (error) {
+     console.error("Error fetching all conversations:", error);
+     toast.error("Error fetching conversations");
    }
  }
 }));

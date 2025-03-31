@@ -191,8 +191,7 @@ const GlobalChat = () => {
   // Handle socket events for global messages
   useEffect(() => {
     if (!socket) return;
-
-    // Create event handler functions
+  
     const handleGlobalMessage = (message) => {
       // Only add the message if it's not already in the messages
       const messageExists = ChatStore.getState().globalMessages.some(
@@ -206,24 +205,26 @@ const GlobalChat = () => {
         }
       }
     };
-
+  
     const handleGlobalMessageDeletion = ({ messageId }) => {
       console.log("Received global_message_deleted event:", messageId);
       deleteGlobalMessage(messageId);
     };
-
+  
     // Remove existing listeners before adding new ones
     socket.off("global_message").off("global_message_deleted");
-
+  
     // Add event listeners
     socket.on("global_message", handleGlobalMessage);
     socket.on("global_message_deleted", handleGlobalMessageDeletion);
-
+  
     return () => {
       socket.off("global_message", handleGlobalMessage);
       socket.off("global_message_deleted", handleGlobalMessageDeletion);
     };
-  }, [socket, isScrolledToBottom, scrollToBottom, authUser, deleteGlobalMessage]);
+  }, [socket, isScrolledToBottom, scrollToBottom, deleteGlobalMessage]);
+
+  // Remove the duplicate socket event handler implementation that appears after this
 
   useEffect(() => {
     // Only scroll to bottom when messages change if we're at the bottom already
