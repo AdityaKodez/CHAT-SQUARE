@@ -245,50 +245,46 @@ export const DeleteMessage = async (req, res) => {
     }
 };
 
-export const getAllConversations = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    
-    // Find all messages where the user is either sender or receiver
-    const messages = await Message.find({
-      $or: [
-        { sender: userId },
-        { receiver: userId }
-      ]
-    }).populate('sender receiver');
+export const UnseenMessage = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { senderId } = req.params;  // Change from conversationId to senderId
 
-    // Group messages by conversation
-    const conversations = {};
-    const unreadCounts = {};
+        // Count unread messages from a specific sender
+        const unseenMessageCount = await Message.countDocuments({
+            sender: senderId,     // Messages from specific sender
+            receiver: userId,     // Messages to current user
+            isRead: false,        // Unread messages only
+            isGlobal: { $ne: true } // Exclude global messages
+        });
 
-    messages.forEach(msg => {
-      const otherUserId = msg.sender._id.toString() === userId.toString() 
-        ? msg.receiver._id.toString()
-        : msg.sender._id.toString();
-
-      if (!conversations[otherUserId]) {
-        conversations[otherUserId] = [];
-      }
-      conversations[otherUserId].push(msg);
-
-      // Count unread messages
-      if (!msg.isRead && msg.sender._id.toString() !== userId.toString()) {
-        unreadCounts[otherUserId] = (unreadCounts[otherUserId] || 0) + 1;
-      }
-    });
-
-    // Format the response
-    const formattedConversations = Object.entries(conversations).map(([userId, messages]) => ({
-      userId,
-      messages: messages.sort((a, b) => a.createdAt - b.createdAt)
-    }));
-
-    res.status(200).json({
-      conversations: formattedConversations,
-      unreadCounts
-    });
-  } catch (error) {
-    console.error("Error fetching all conversations:", error);
-    res.status(500).json({ message: "Error fetching conversations" });
-  }
-};
+        res.status(200).json({ 
+            unseenMessageCount,
+            senderId 
+        });
+    }
+    catch (error) {
+        console.error("Error in UnseenMessage controller:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+export const markMessagesAsRead = async (req, res) => {
+    try {
+      const { senderId } = req.params;
+      const userId = req.user._id;
+  
+      await Message.updateMany(
+        {
+          sender: senderId,
+          receiver: userId,
+          isRead: false
+        },
+        { isRead: true }
+      );
+  
+      res.status(200).json({ message: "Messages marked as read" });
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };

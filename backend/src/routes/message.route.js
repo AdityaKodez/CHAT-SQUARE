@@ -1,5 +1,5 @@
 import express from "express";
-import { getUserForSidebar, getMessages, sendMessage, DeleteMessage, getGlobalMessages, sendGlobalMessage, deleteGlobalMessage, getAllConversations } from "../controller/message.controller.js";
+import { getUserForSidebar, getMessages, sendMessage, DeleteMessage, getGlobalMessages, sendGlobalMessage, deleteGlobalMessage, UnseenMessage,markMessagesAsRead } from "../controller/message.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 const Messagerouter = express.Router();
 
@@ -15,6 +15,7 @@ Messagerouter.post("/send/:userId", protectRoute, sendMessage);
 Messagerouter.delete("/:messageId", protectRoute, DeleteMessage);
 
 // Add this new route
-Messagerouter.get("/all-conversations", protectRoute, getAllConversations);
+Messagerouter.get("/unseen/:senderId", protectRoute, UnseenMessage);
+Messagerouter.put("/markAsRead/:senderId", protectRoute, markMessagesAsRead);
 
 export default Messagerouter;

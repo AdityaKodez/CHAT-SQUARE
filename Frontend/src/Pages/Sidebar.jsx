@@ -45,6 +45,7 @@ const Sidebar = () => {
     unreadCounts,
     initializeSocketListeners,
     globalChatSelected,
+    fetchUnseenMessages,
     setGlobalChatSelected
   } = ChatStore();
   
@@ -90,7 +91,12 @@ const Sidebar = () => {
       return true;
     });
   }, [users, showOnlineOnly, onlineUsers, authUser]);
-
+  useEffect(() => {
+    // Fetch unseen messages for each user
+    filteredUsers.forEach(user => {
+      ChatStore.getState().fetchUnseenMessages(user._id);
+    });
+  }, [filteredUsers]);
   if (isUserLoading) return <SidebarSkeleton />;
 
   // Function to get the last message for a user
@@ -102,6 +108,7 @@ const Sidebar = () => {
     const lastMsg = conversations[userId][conversations[userId].length - 1];
     return lastMsg.content || "No content";
   };
+
 
   return (
     <aside className="h-full w-20 lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200 font-work-sans relative">

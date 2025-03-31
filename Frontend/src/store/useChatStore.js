@@ -279,42 +279,28 @@ const ChatStore = create((set, get) => ({
   // In your handleNewMessage method
   handleNewMessage: function(message) {
     set((state) => {
-      const conversationId = message.sender === useAuthStore.getState().authUser?._id ? 
-        message.recipient : message.sender;
-      
       const isIncomingMessage = message.sender !== useAuthStore.getState().authUser?._id;
-      
-      // Update condition to consider message.isRead status
-      const shouldIncrementUnread = isIncomingMessage && 
-        (!state.SelectedUser || state.SelectedUser._id !== message.sender) &&
-        !message.isRead;
-      
-      const newUnreadCounts = { ...state.unreadCounts };
-      if (shouldIncrementUnread) {
-        newUnreadCounts[message.sender] = (newUnreadCounts[message.sender] || 0) + 1;
-      }
-      
-      // Only update if we have this conversation in our state
-      if (state.conversations[conversationId]) {
+      const isNotSelectedUser = !state.SelectedUser || state.SelectedUser._id !== message.sender;
+  
+      if (isIncomingMessage && isNotSelectedUser) {
         return {
           conversations: {
             ...state.conversations,
-            [conversationId]: [
-              ...(state.conversations[conversationId] || []),
-              message
-            ]
+            [message.sender]: [...(state.conversations[message.sender] || []), message]
           },
-          unreadCounts: newUnreadCounts
+          unreadCounts: {
+            ...state.unreadCounts,
+            [message.sender]: (state.unreadCounts[message.sender] || 0) + 1
+          }
         };
       }
-      
-      // If we don't have the conversation yet but it's an incoming message,
-      // still update the unread counts
-      if (shouldIncrementUnread) {
-        return { unreadCounts: newUnreadCounts };
-      }
-      
-      return state;
+  
+      return {
+        conversations: {
+          ...state.conversations,
+          [message.sender]: [...(state.conversations[message.sender] || []), message]
+        }
+      };
     });
   },
   // Add to your initial state
@@ -326,58 +312,37 @@ unreadCounts: {}, // Store unread message counts per user
 setSelectedUser: function(selectedUser) {
   set((state) => {
     if (selectedUser && selectedUser._id) {
-      const conversationMessages = state.conversations[selectedUser._id] || [];
-      const unreadMessages = conversationMessages.filter(
-        msg => !msg.isRead && msg.sender._id === selectedUser._id
-      );
-
-      // Mark messages as read in backend
-      unreadMessages.forEach(msg => {
-        axiosInstance.put(`/message/${msg._id}/read`);
-      });
-
-      // Update local state
       return {
         SelectedUser: selectedUser,
-        globalChatSelected: false,
-        conversations: {
-          ...state.conversations,
-          [selectedUser._id]: conversationMessages.map(msg => ({
-            ...msg,
-            isRead: msg.sender._id === selectedUser._id ? true : msg.isRead
-          }))
-        },
+        globalChatSelected: false, // Reset global chat when selecting a user
         unreadCounts: {
           ...state.unreadCounts,
           [selectedUser._id]: 0
         }
       };
     }
-    
-    return {
+    return { 
       SelectedUser: selectedUser,
-      globalChatSelected: false
+      globalChatSelected: false // Reset global chat when clearing selected user
     };
   });
+
+  // Mark messages as read in backend
+  if (selectedUser) {
+    axiosInstance.put(`/message/markAsRead/${selectedUser._id}`);
+  }
 },
 
 // Method to select global chat
-
 setGlobalChatSelected: function() {
-  set((state) => {
-    // Reset unread count for global chat
-    const newUnreadCounts = { ...state.unreadCounts };
-    newUnreadCounts["global"] = 0;
-    
-    return { 
-      SelectedUser: null,
-      globalChatSelected: true,
-      unreadCounts: newUnreadCounts
-    };
-  });
-  
-  // Load global messages when selecting global chat
-  get().getGlobalMessages({ page: 1 });
+  set((state) => ({
+    SelectedUser: null,
+    globalChatSelected: true,
+    unreadCounts: {
+      ...state.unreadCounts,
+      global: 0
+    }
+  }));
 },
 
 // Get global messages
@@ -594,24 +559,19 @@ deleteGlobalMessage: async function(messageId) {
  },
 
  // Add this to your ChatStore
- fetchAllConversations: async function() {
-   try {
-     const res = await axiosInstance.get('/message/all-conversations');
-     set((state) => ({
-       conversations: res.data.conversations.reduce((acc, conv) => {
-         acc[conv.userId] = conv.messages.map(msg => ({
-           ...msg,
-           isRead: msg.isRead || false
-         }));
-         return acc;
-       }, {}),
-       unreadCounts: res.data.unreadCounts
-     }));
-   } catch (error) {
-     console.error("Error fetching all conversations:", error);
-     toast.error("Error fetching conversations");
-   }
- },
+ fetchUnseenMessages: async function (senderId) {
+  try {
+    const response = await axiosInstance.get(`/message/unseen/${senderId}`);
+    set((state) => ({
+      unreadCounts: {
+        ...state.unreadCounts,
+        [senderId]: response.data.unseenMessageCount
+      }
+    }));
+  } catch (error) {
+    console.error("Error fetching unseen messages:", error);
+  }
+},
 
  // Add this new method
  sendTypingStatus: function({ to, isTyping }) {
