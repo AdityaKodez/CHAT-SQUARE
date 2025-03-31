@@ -611,6 +611,18 @@ deleteGlobalMessage: async function(messageId) {
      console.error("Error fetching all conversations:", error);
      toast.error("Error fetching conversations");
    }
+ },
+
+ // Add this new method
+ sendTypingStatus: function({ to, isTyping }) {
+   const socket = useAuthStore.getState().socket;
+   if (socket) {
+     socket.emit("typing", {
+       to,
+       isTyping,
+       from: useAuthStore.getState().authUser?._id
+     });
+   }
  }
 }));
 

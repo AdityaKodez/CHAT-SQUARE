@@ -54,9 +54,8 @@ io.on("connection", (socket) => {
     socket.on("typing", ({to, isTyping, from}) => {
         const recipientSocket = userSockets.get(to);
         if(recipientSocket) {
-            // Send typing status with sender's userId
             socket.to(recipientSocket).emit("typing", {
-                from, // Use the explicitly provided sender ID
+                from,
                 isTyping,
             });
         }

@@ -181,7 +181,7 @@ const ChatContainer = () => {
   
   // Handle input changes for typing indicator
   const handleInputChange = (e) => {
-    if (!isTyping) {
+    if (!isTyping && SelectedUser) {
       setIsTyping(true);
       sendTypingStatus({ 
         to: SelectedUser._id,
@@ -197,20 +197,22 @@ const ChatContainer = () => {
     // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      sendTypingStatus({ 
-        to: SelectedUser._id,
-        isTyping: false 
-      });
+      if (SelectedUser) {
+        sendTypingStatus({ 
+          to: SelectedUser._id,
+          isTyping: false 
+        });
+      }
     }, 2000);
   };
 
-  // Cleanup timeout on unmount
+  // Cleanup timeout on unmount or when selected user changes
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      // Clear typing status when leaving chat
+      // Clear typing status when leaving chat or changing user
       if (SelectedUser?._id) {
         sendTypingStatus({ 
           to: SelectedUser._id,
@@ -218,7 +220,7 @@ const ChatContainer = () => {
         });
       }
     };
-  }, [SelectedUser]);
+  }, [SelectedUser, sendTypingStatus]);
 
   // Handle socket events
   useEffect(() => {
@@ -439,7 +441,7 @@ const ChatContainer = () => {
         )}
       </div>
 
-      {/* Show typing indicator only for selected user */}
+      {/* Show typing indicator */}
       {typingUsers[SelectedUser?._id] && (
         <div className="text-sm text-gray-500 italic ml-4 mb-2">
           {SelectedUser.fullName} is typing...
