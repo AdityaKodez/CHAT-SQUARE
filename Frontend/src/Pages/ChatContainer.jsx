@@ -240,35 +240,40 @@ const ChatContainer = () => {
   useEffect(() => {
     if (!socket || !SelectedUser) return;
 
-    // Listen for typing events
-    socket.on("typing", ({ from, isTyping }) => {
-      // Only show typing indicator if it's from the selected user
+    // Create event handler functions
+    const handleTyping = ({ from, isTyping }) => {
       if (from === SelectedUser._id) {
         setIsOtherUserTyping(isTyping);
       }
-    });
+    };
 
-    // Listen for new messages
-    socket.on("private message", ({ from, message }) => {
-      // If we receive a message, clear typing indicator
+    const handlePrivateMessage = ({ from, message }) => {
       if (from === SelectedUser._id) {
         setIsOtherUserTyping(false);
       }
       handleNewMessage(message);
-    });
-
-    // Add listener for message deletion
-    socket.on("message_deleted", ({ messageId, conversationId }) => {
-      console.log("Received message_deleted event:", messageId, conversationId);
-      // The store will handle the actual deletion
-    });
-
-    return () => {
-      socket.off("private message");
-      socket.off("typing");
-      socket.off("message_deleted");
     };
-  }, [socket, SelectedUser, handleNewMessage]);
+
+    const handleMessageDeletion = ({ messageId, conversationId }) => {
+      console.log("Received message_deleted event:", messageId, conversationId);
+      DeleteMessage(messageId, conversationId);
+    };
+
+    // Remove existing listeners before adding new ones
+    socket.off("typing").off("private message").off("message_deleted");
+
+    // Add event listeners
+    socket.on("typing", handleTyping);
+    socket.on("private message", handlePrivateMessage);
+    socket.on("message_deleted", handleMessageDeletion);
+
+    // Cleanup
+    return () => {
+      socket.off("typing", handleTyping);
+      socket.off("private message", handlePrivateMessage);
+      socket.off("message_deleted", handleMessageDeletion);
+    };
+  }, [socket, SelectedUser, handleNewMessage, DeleteMessage]);
 
  useEffect(() => {
     // Only scroll to bottom when messages change if we're at the bottom already

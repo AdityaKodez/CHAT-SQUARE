@@ -2,10 +2,14 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import axiosInstance from "@/lib/axios";
 import { useAuthStore } from "./useAuthStore";
-import { Delete } from "lucide-react";
+import { Delete, Globe } from "lucide-react";
 
 // Modify the initial state
 const ChatStore = create((set, get) => ({
+  // Global chat state
+  globalMessages: [],
+  isGlobalMessageLoading: false,
+  globalChatSelected: false,
   messages: [],
   messageCount:null,
   users: [],
@@ -83,6 +87,20 @@ const ChatStore = create((set, get) => ({
         }
         return state;
       });
+    });
+    
+    // Listen for global messages
+    socket.on("global_message", (message) => {
+      console.log("Received global message:", message);
+      get().handleNewGlobalMessage(message);
+    });
+    
+    // Listen for global message deletion
+    socket.on("global_message_deleted", ({ messageId }) => {
+      console.log("Global message deleted:", messageId);
+      set((state) => ({
+        globalMessages: state.globalMessages.filter(message => message._id !== messageId)
+      }));
     });
   }
 ,
@@ -243,7 +261,6 @@ unreadCounts: {}, // Store unread message counts per user
 setSelectedUser: function(selectedUser) {
   set((state) => {
     // Reset unread count for this user
-   
     const newUnreadCounts = { ...state.unreadCounts };
     if (selectedUser && selectedUser._id) {
       newUnreadCounts[selectedUser._id] = 0;
@@ -251,13 +268,119 @@ setSelectedUser: function(selectedUser) {
     
     return { 
       SelectedUser: selectedUser,
-      unreadCounts: newUnreadCounts
+      unreadCounts: newUnreadCounts,
+      globalChatSelected: false // Set global chat to false when selecting a user
     };
   });
   
   // If a user is selected, fetch their messages
   if (selectedUser && selectedUser._id) {
     get().getMessages({ userId: selectedUser._id });
+  }
+},
+
+// Method to select global chat
+setGlobalChatSelected: function() {
+  set({ 
+    SelectedUser: null,
+    globalChatSelected: true 
+  });
+  
+  // Load global messages when selecting global chat
+  get().getGlobalMessages({ page: 1 });
+},
+
+// Get global messages
+getGlobalMessages: async function({ page = 1, limit = 20 }) {
+  const isInitialLoad = page === 1;
+  
+  if (isInitialLoad) {
+    set({ isGlobalMessageLoading: true });
+  } else {
+    set({ isLoadingMoreMessages: true });
+  }
+  
+  try {
+    const res = await axiosInstance.get(`/message/global?page=${page}&limit=${limit}`);
+    
+    set((state) => {
+      // For initial load, just set the messages
+      // For pagination (page > 1), prepend the new messages to existing ones
+      const updatedMessages = isInitialLoad 
+        ? res.data.messages 
+        : [...res.data.messages, ...state.globalMessages];
+      
+      return {
+        globalMessages: updatedMessages,
+        isGlobalMessageLoading: false,
+        isLoadingMoreMessages: false,
+        messagePagination: res.data.pagination
+      };
+    });
+    
+    return res.data.pagination;
+  } catch (error) {
+    console.error("Error fetching global messages:", error);
+    toast.error("Error fetching global messages");
+    set({ 
+      isGlobalMessageLoading: false,
+      isLoadingMoreMessages: false 
+    });
+  }
+},
+
+// Handle new global message
+handleNewGlobalMessage: function(message) {
+  set((state) => ({
+    globalMessages: [...(state.globalMessages || []), message]
+  }));
+},
+
+// Send global message
+sendGlobalMessage: async function({ content }) {
+  set({ isSendingMessage: true });
+  try {
+    const res = await axiosInstance.post('/message/global', { content });
+    const newMessage = res.data;
+    
+    // Don't update state here - let the socket event handle it
+    // This prevents duplicate messages
+
+    // Emit through socket
+
+    return newMessage;
+  } catch (error) {
+    console.error("Error sending global message:", error);
+    toast.error("Error sending global message");
+    throw error;
+  } finally {
+    set({ isSendingMessage: false });
+  }
+},
+
+// Delete global message
+deleteGlobalMessage: async function(messageId) {
+  try {
+    // Make the DELETE request to the backend
+    await axiosInstance.delete(`/message/global/${messageId}`);
+    
+    // Update the local state to remove the deleted message
+    set((state) => ({
+      globalMessages: state.globalMessages.filter(message => message._id !== messageId)
+    }));
+    
+    // Emit socket event to notify other users about the deletion
+    const socket = useAuthStore.getState().socket;
+    if (socket) {
+      console.log("Emitting global_message_deleted event:", messageId);
+      socket.emit("global_message_deleted", { messageId });
+    }
+    
+    toast.success("Message deleted successfully");
+  } catch (error) {
+    console.error("Error deleting global message:", error);
+    toast.error("Error deleting message");
+    throw error; 
   }
 },
   // Update sendMessage method
@@ -313,7 +436,9 @@ setSelectedUser: function(selectedUser) {
      users: [],
      SelectedUser: null,
      onlineUsers: [],
-     userRefreshInterval: null // Add this line
+     userRefreshInterval: null, // Add this line
+     globalMessages: [],
+     globalChatSelected: false
    });
  },
  DeleteMessage: async function(messageId, conversationId) {

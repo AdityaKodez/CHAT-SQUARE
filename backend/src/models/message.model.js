@@ -10,7 +10,11 @@ const messageSchema = new mongoose.Schema(
     receiver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false, // Optional for global messages
+    },
+    isGlobal: {
+      type: Boolean,
+      default: false, // Default to private messages
     },
     content: {
       type: String,

@@ -1,10 +1,17 @@
 import express from "express";
-import { getUserForSidebar, getMessages,sendMessage,DeleteMessage } from "../controller/message.controller.js";
+import { getUserForSidebar, getMessages, sendMessage, DeleteMessage, getGlobalMessages, sendGlobalMessage, deleteGlobalMessage } from "../controller/message.controller.js";
 import { protectRoute } from "../middleware/auth.middleware.js";
 const Messagerouter = express.Router();
 
-Messagerouter.get("/users", protectRoute,getUserForSidebar); // Send message
-Messagerouter.get("/:userId", protectRoute, getMessages); // Get message // Mark message as read
-Messagerouter.post("/send/:userId", protectRoute, sendMessage); // Send message
-Messagerouter.delete("/:messageId", protectRoute,DeleteMessage ); // Delete message
+// Global chat routes
+Messagerouter.get("/global", protectRoute, getGlobalMessages); // Get global messages
+Messagerouter.post("/global", protectRoute, sendGlobalMessage); // Send global message
+Messagerouter.delete("/global/:messageId", protectRoute, deleteGlobalMessage); // Delete global message
+
+// Private chat routes
+Messagerouter.get("/users", protectRoute, getUserForSidebar);
+Messagerouter.get("/:userId", protectRoute, getMessages);
+Messagerouter.post("/send/:userId", protectRoute, sendMessage);
+Messagerouter.delete("/:messageId", protectRoute, DeleteMessage);
+
 export default Messagerouter;

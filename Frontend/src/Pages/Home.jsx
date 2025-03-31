@@ -5,9 +5,10 @@ import ChatContainer from './ChatContainer.jsx'
 import { useEffect } from 'react'
 import { useAuthStore } from '../store/useAuthStore.js'
 import Sidebar from './Sidebar.jsx'
+import GlobalChat from '../components/GlobalChat.jsx'
 
 const Home = () => {
-  const {SelectedUser} = ChatStore()
+  const {SelectedUser, globalChatSelected} = ChatStore()
 // In your component that initializes the socket listeners
 useEffect(() => {
   // Initialize socket listeners
@@ -26,7 +27,7 @@ useEffect(() => {
     <div className="flex justify-center items-center pt-17 px-0 h-full">
       <div className="bg-base-100 shadow-cl w-full h-full flex">
    <Sidebar/>
-  {!SelectedUser? <Nochatselected/>:<ChatContainer/>}
+  {globalChatSelected ? <GlobalChat/> : (!SelectedUser ? <Nochatselected/> : <ChatContainer/>)}
       </div>
     </div>
    </div>

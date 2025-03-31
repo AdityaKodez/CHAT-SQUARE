@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import ChatStore from "../store/useChatStore.js";
 import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
-import { BadgeCheck, Plus, User, Users } from "lucide-react";
+import { BadgeCheck, Plus, User, Users, Globe } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 
 const UserStatus = ({ userId }) => {
@@ -43,7 +43,9 @@ const Sidebar = () => {
     onlineUsers,
     conversations, // Make sure to include this
     unreadCounts,
-    initializeSocketListeners
+    initializeSocketListeners,
+    globalChatSelected,
+    setGlobalChatSelected
   } = ChatStore();
   
   const { authUser } = useAuthStore();
@@ -125,6 +127,46 @@ const Sidebar = () => {
 
       {/* Users List Section */}
       <div className="overflow-y-auto w-full py-3">
+        {/* Global Chat Entry - Always at the top */}
+        <button
+          onClick={() => setGlobalChatSelected()}
+          className={`
+            w-full p-3 flex items-center gap-3 border-b border-base-300 mb-2
+            hover:bg-base-300 transition-colors group
+            ${globalChatSelected ? "bg-base-300 ring-1 ring-base-300" : ""}
+          `}
+        >
+          {/* Globe Icon */}
+          <div className="relative flex-shrink-0 mx-auto lg:mx-0">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500 text-white">
+              <Globe size={20} />
+            </div>
+            
+            {/* Show unread message count if needed */}
+            {unreadCounts["global"] > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 bg-red-500 rounded-full ring-1 ring-base-100 text-white text-xs flex items-center justify-center px-1">
+                {unreadCounts["global"] > 9 ? '9+' : unreadCounts["global"]}
+              </span>
+            )}
+          </div>
+
+          {/* Global Chat info - only visible on larger screens */}
+          <div className="hidden lg:block text-left min-w-0 flex-1 overflow-hidden justify-center items-center mb-3">
+            <div className="flex justify-between items-center w-full mb-1">
+              <div className="flex items-center gap-1">
+                <p className="font-medium truncate mr-1">Global Chat</p>
+                <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              </div>
+              <div className="flex-shrink-0 text-right">
+
+              </div>
+            </div>
+            <div className="text-sm text-zinc-400 truncate">
+              Chat with everyone
+            </div>
+          </div>
+        </button>
+        
         {filteredUsers.length > 0 ? (
           filteredUsers.map((user) => (
             <button

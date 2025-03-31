@@ -106,6 +106,21 @@ io.on("connection", (socket) => {
             }
         }
     });
+    socket.on("global_typing", ({ isTyping, fullName }) => {
+        // Find the sender's userId from the socket connection
+        const senderId = [...userSockets.entries()]
+            .find(([_, socketId]) => socketId === socket.id)?.[0];
+            
+        if (senderId) {
+            // Broadcast to all connected clients except the sender
+            socket.broadcast.emit("global_typing", {
+                userId: senderId,
+                isTyping,
+                fullName
+            });
+        }
+    });
+      
 });
 
 export {io, app, server};
