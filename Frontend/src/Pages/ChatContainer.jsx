@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Send, Trash2, Loader2, Info, X } from 'lucide-react';
+import { Send, Trash2, Loader2, Info, X,BadgeCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const UserStatus = ({ userId }) => {
@@ -31,7 +31,6 @@ const Colors = [
   "bg-indigo-500",
   "bg-teal-500",
 ];
-
 const ChatContainer = () => {
   const { 
     SelectedUser, 
@@ -68,8 +67,23 @@ const ChatContainer = () => {
     }
   }, []);
   function getRandomColor(userId) {
-    // Use the user ID to get a consistent color for each user
-    const index = userId.charCodeAt(0) % Colors.length;
+    // If no userId is provided, return the first color
+    if (!userId) return Colors[0];
+    
+    // Simple string hash function for better distribution
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      // Multiply by 31 (common in hash functions) and add character code
+      hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Use absolute value to ensure positive index
+    const index = Math.abs(hash) % Colors.length;
+    
+    // Log for debugging
+    console.log(`User ID: ${userId}, Hash: ${hash}, Color Index: ${index}, Color: ${Colors[index]}`);
+    
     return Colors[index];
   }
   // Function to load more messages
@@ -323,7 +337,14 @@ const ChatContainer = () => {
           }
           <div className='flex-1 flex flex-col'>
             <div className='flex justify-between items-center w-full'>
-              <h3 className="font-medium text-sm">{userFullName}</h3>
+              <div className="flex items-center gap-1">
+                <h3 className="font-medium text-sm">{userFullName}</h3>
+                {
+                  SelectedUser.isVerified && (
+                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  )
+                }
+              </div>
               <div className="ml-auto flex items-center gap-3">
                 <button 
                   onClick={() => setShowProfileModal(true)}
@@ -493,13 +514,27 @@ const ChatContainer = () => {
                         SelectedUser._id
                       )}`}
                     >
-                      {SelectedUser.fullName?.charAt(0).toUpperCase()}
+                      <div>
+                <h1> {SelectedUser.fullName?.charAt(0).toUpperCase()}</h1>
+                {
+                  SelectedUser.isVerified && (
+                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  )
+                }
+                      </div>
+               
                     </div>
+                  
                   )}
                 </div>
 
                 {/* User Name and Status */}
-                <h3 className="text-xl font-bold mb-1">{SelectedUser.fullName}</h3>
+                <div className="flex items-center gap-1 mb-1">
+                  <h3 className="text-xl font-bold">{SelectedUser.fullName}</h3>
+                  {SelectedUser.isVerified && (
+                    <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                  )}
+                </div>
                 <div className="mb-4">
                   {onlineUsers.includes(SelectedUser._id) ? (
                     <span className="text-sm text-success flex items-center justify-center gap-1">

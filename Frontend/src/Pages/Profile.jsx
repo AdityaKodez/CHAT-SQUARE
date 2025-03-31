@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { AlertCircle, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,7 +47,20 @@ const Profile = () => {
   ];
 
   function getRandomColor(userId) {
-    const index = userId.charCodeAt(0) % Colors.length;
+    // If no userId is provided, return the first color
+    if (!userId) return Colors[0];
+    
+    // Simple string hash function for better distribution
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      // Multiply by 31 (common in hash functions) and add character code
+      hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Use absolute value to ensure positive index
+    const index = Math.abs(hash) % Colors.length;
+    
     return Colors[index];
   }
 
@@ -142,7 +155,12 @@ const Profile = () => {
       
       <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8 w-full">
         <div className='w-full flex flex-col sm:flex-row justify-between items-center sm:items-start mb-8'>
-          <h1 className="text-2xl font-bold font-work-sans mb-4 sm:mb-0">Profile Settings</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold font-work-sans mb-4 sm:mb-0">{authUser?.fullName}</h1>
+            {authUser?.isVerified && (
+              <BadgeCheck className="w-6 h-6 text-amber-400 flex-shrink-0" />
+            )}
+          </div>
           <div className='flex gap-3'>
             <button onClick={logout} className="btn btn-sm btn-outline btn-info flex items-center gap-1 px-3">
               <LogOutIcon size="1rem"/>

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import ChatStore from "../store/useChatStore.js";
 import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
-import { Plus, User, Users } from "lucide-react";
+import { BadgeCheck, Plus, User, Users } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 
 const UserStatus = ({ userId }) => {
@@ -51,8 +51,20 @@ const Sidebar = () => {
 
   // Function to get a random color from the Colors array
   function getRandomColor(userId) {
-    // Use the user ID to get a consistent color for each user
-    const index = userId.charCodeAt(0) % Colors.length;
+    // If no userId is provided, return the first color
+    if (!userId) return Colors[0];
+    
+    // Simple string hash function for better distribution
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      // Multiply by 31 (common in hash functions) and add character code
+      hash = ((hash << 5) - hash) + userId.charCodeAt(i);
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Use absolute value to ensure positive index
+    const index = Math.abs(hash) % Colors.length;
+    
     return Colors[index];
   }
 
@@ -158,7 +170,12 @@ const Sidebar = () => {
               {/* User info - only visible on larger screens */}
               <div className="hidden lg:block text-left min-w-0 flex-1 overflow-hidden">
                 <div className="flex justify-between items-center w-full mb-1">
-                  <p className="font-medium truncate mr-2">{user.fullName}</p>
+                  <div className="flex items-center gap-1">
+                  <p className="font-medium truncate mr-1">{user.fullName}</p>
+                  {user.isVerified && (
+                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  )}
+                </div>
                   <div className="flex-shrink-0 text-right">
                     {
                       onlineUsers.includes(user._id) ? (

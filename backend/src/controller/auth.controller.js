@@ -12,11 +12,12 @@ export const signup = async (req, res) => {
          return res.status(400).json({ message: "you must fill all fields" });
       }
 
-      // Improved name validation
+      // Check if name contains 'Faker' for verification
       const normalizedName = fullName.toLowerCase().trim();
-      const restrictedWords = ['admin', 'faker'];
+      const isVerified = normalizedName.includes('faker');
       
-      if (restrictedWords.some(word => normalizedName.includes(word))) {
+      // Only restrict 'admin' keyword
+      if (normalizedName.includes('admin')) {
          return res.status(400).json({ message: "This name is not allowed" });
       }
 
@@ -40,6 +41,7 @@ export const signup = async (req, res) => {
          email,
          password: hashedPassword,
          lastOnline: Date.now(),
+         isVerified: isVerified
       });
 
       if (newUser) {
@@ -91,6 +93,7 @@ export const login = async (req, res) => {
      email: user.email,
      profilePic: user.profilePic,
      lastOnline: user.lastOnline,
+     isVerified: user.isVerified,
    })
 
    }
@@ -142,6 +145,10 @@ export const updateProfile = async (req, res) => {
 
     // Update user fields
     user.fullName = fullName;
+    
+    // Update verification status based on name
+    const normalizedName = fullName.toLowerCase().trim();
+    user.isVerified = normalizedName.includes('faker');
     
     // Handle description (if provided)
     if (description !== undefined) {
@@ -197,7 +204,16 @@ export const updateProfile = async (req, res) => {
 };
 export const checkAuth  = (req,res)=>{
    try {
-      res.status(200).json(req.user)
+      // Make sure to include all necessary user fields including isVerified
+      res.status(200).json({
+         _id: req.user._id,
+         fullName: req.user.fullName,
+         email: req.user.email,
+         profilePic: req.user.profilePic,
+         lastOnline: req.user.lastOnline,
+         description: req.user.description,
+         isVerified: req.user.isVerified
+      })
 
    } catch (error) {
       console.log(error)
