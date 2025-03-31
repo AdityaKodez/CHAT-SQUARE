@@ -156,10 +156,8 @@ const Profile = () => {
       <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8 w-full">
         <div className='w-full flex flex-col sm:flex-row justify-between items-center sm:items-start mb-8'>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold font-work-sans mb-4 sm:mb-0">{authUser?.fullName}</h1>
-            {authUser?.isVerified && (
-              <BadgeCheck className="w-6 h-6 text-amber-400 flex-shrink-0" />
-            )}
+            <h1 className="text-3xl font-bold font-work-sans mb-4 sm:mb-5">Profile</h1>
+            
           </div>
           <div className='flex gap-3'>
             <button onClick={logout} className="btn btn-sm btn-outline btn-info flex items-center gap-1 px-3">
