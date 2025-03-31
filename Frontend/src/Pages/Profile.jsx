@@ -226,7 +226,7 @@ const Profile = () => {
               <div>
                 <label className='block text-sm font-medium mb-2 font-work-sans'>Description</label>
                 <textarea
-                  value={authUser.description}
+                  defaultValue={authUser.description}
                   onChange={handleTextareaChange}
                   className="textarea resize-none textarea-bordered w-full h-20 font-work-sans"
                   placeholder="Tell us about yourself..."
@@ -239,6 +239,7 @@ const Profile = () => {
                 </div>
               </div>
             </div> 
+
           
             <div className="flex flex-col w-full gap-4">
               <button

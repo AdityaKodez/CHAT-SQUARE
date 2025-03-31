@@ -39,12 +39,12 @@ const ChatContainer = () => {
     onlineUsers,
     sendMessage,
     isMessageLoading,
-    isLoadingMoreMessages,
+    // Add this with your other state declarations
     getMessages,
     handleNewMessage,
     DeleteMessage,
   } = ChatStore();
-
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
   
@@ -76,8 +76,21 @@ const ChatContainer = () => {
   const loadMoreMessages = useCallback(async () => {
     if (!SelectedUser || isLoadingMoreMessages || !hasMore) return;
     
-    const nextPage = currentPage + 1;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    // Store the current scroll height and position before loading more messages
+    const prevScrollHeight = container.scrollHeight;
+    const prevScrollTop = container.scrollTop;
+    
     try {
+      // Instead of using set directly, use the store's function or state
+      // set({ isLoadingMoreMessages: true }); <- This is causing the error
+      
+      // Use a local state variable instead
+      setIsLoadingMoreMessages(true);
+      
+      const nextPage = currentPage + 1;
       const pagination = await getMessages({ 
         userId: SelectedUser._id, 
         page: nextPage 
@@ -86,9 +99,20 @@ const ChatContainer = () => {
       if (pagination) {
         setCurrentPage(nextPage);
         setHasMore(pagination.hasMore);
+        
+        // After the messages are loaded and rendered, adjust scroll position
+        setTimeout(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            const scrollDiff = newScrollHeight - prevScrollHeight;
+            container.scrollTop = prevScrollTop + scrollDiff;
+          }
+          setIsLoadingMoreMessages(false);
+        }, 100);
       }
     } catch (error) {
       console.error("Error loading more messages:", error);
+      setIsLoadingMoreMessages(false);
     }
   }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages]);
   
@@ -104,7 +128,8 @@ const ChatContainer = () => {
     setIsScrolledToBottom(isAtBottom);
     
     // Check if scrolled to top for loading more messages
-    if (container.scrollTop === 0 && hasMore && !isLoadingMoreMessages) {
+    // Add a small threshold to prevent edge cases
+    if (container.scrollTop < 20 && hasMore && !isLoadingMoreMessages) {
       loadMoreMessages();
     }
   }, [hasMore, isLoadingMoreMessages, loadMoreMessages]);
@@ -231,21 +256,13 @@ const ChatContainer = () => {
     };
   }, [socket, SelectedUser, handleNewMessage]);
 
-  // Improved scroll to bottom on new messages
-  useEffect(() => {
-    // Only auto-scroll if we were already at the bottom
-    if (isScrolledToBottom && messages.length > 0) {
-      // Small delay to ensure DOM is updated
-      setTimeout(() => scrollToBottom(), 100);
-    }
-  }, [messages.length, isScrolledToBottom, scrollToBottom]);
-  
-  // Scroll to bottom when typing indicator changes
-  useEffect(() => {
-    if (isScrolledToBottom && isOtherUserTyping) {
+ useEffect(() => {
+    // Only scroll to bottom when messages change if we're at the bottom already
+    // or if we're not loading more messages (pagination)
+    if (isScrolledToBottom && !isLoadingMoreMessages) {
       scrollToBottom();
     }
-  }, [isOtherUserTyping, isScrolledToBottom, scrollToBottom]);
+  }, [messages, scrollToBottom, isScrolledToBottom, isLoadingMoreMessages]);
 
   // Handle form submission
   const handleSubmit = async (e) => {
@@ -253,6 +270,7 @@ const ChatContainer = () => {
     const content = e.target.message.value;
     if (!content.trim()) return;
 
+    
     try {
       await sendMessage({
         userId: SelectedUser._id,
@@ -282,7 +300,7 @@ const ChatContainer = () => {
   return (
     <div className="w-full h-full bg-base-100 font-work-sans flex flex-col">
       {/* Chat Header */}
-      <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full sticky top-0 z-10">
+      <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full">
         <div className="flex items-center gap-3">
           {
             SelectedUser.profilePic ? 
@@ -358,7 +376,7 @@ const ChatContainer = () => {
               
               return (
                 <div
-                  key={message._id}
+                  key={`${message._id}-${message.createdAt}`} // Add createdAt to make keys unique
                   className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
                 >
                   <div
