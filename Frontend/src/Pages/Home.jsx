@@ -59,6 +59,9 @@ const Home = () => {
           toast.info(message, {
             position: "top-right",
             autoClose: 3000,
+            className: "bg-base-100 text-base-content font-work-sans shadow-md rounded-lg",
+            bodyClassName: "text-sm",
+            progressClassName: "bg-blue-500",
           });
         }
       });
@@ -93,7 +96,21 @@ const Home = () => {
         <div className="bg-base-100 shadow-cl w-full h-full flex">
           <Sidebar />
           {renderChatComponent()}
-          <ToastContainer /> {/* Add this for toast notifications */}
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+            toastClassName="bg-base-100 text-base-content font-work-sans shadow-md rounded-lg"
+            bodyClassName="text-sm"
+            progressClassName="bg-blue-500"
+          />
         </div>
       </div>
     </div>
