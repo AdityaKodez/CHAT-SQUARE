@@ -19,6 +19,7 @@ import { ArrowLeft } from "lucide-react";
                     />
                   </div>
                 </div>
+                
       
                 {/* Content Side */}
                 <div className="flex flex-col items-center lg:items-start text-center lg:text-left">

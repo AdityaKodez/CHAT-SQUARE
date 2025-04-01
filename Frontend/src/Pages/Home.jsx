@@ -5,8 +5,7 @@ import Sidebar from "./Sidebar";
 import GlobalChat from "../components/GlobalChat";
 import ChatContainer from "./ChatContainer";
 import Nochatselected from "./Nochatselected";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import{Toaster,toast} from "react-hot-toast";
 
 const Home = () => {
   const {
@@ -96,21 +95,6 @@ const Home = () => {
         <div className="bg-base-100 shadow-cl w-full h-full flex">
           <Sidebar />
           {renderChatComponent()}
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-            toastClassName="bg-base-100 text-base-content font-work-sans shadow-md rounded-lg"
-            bodyClassName="text-sm"
-            progressClassName="bg-blue-500"
-          />
         </div>
       </div>
     </div>
