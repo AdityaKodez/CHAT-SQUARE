@@ -8,6 +8,9 @@ import Nochatselected from "./Nochatselected";
 import { Toaster, toast } from "react-hot-toast";
 
 const Home = () => {
+  // Add this state to store pending notifications
+  const [pendingNotifications, setPendingNotifications] = useState([]);
+  
   const {
     SelectedUser,
     globalChatSelected,
@@ -56,7 +59,18 @@ const Home = () => {
 
     // Listen for new_notification event
     if (socket) {
+      // Remove any existing listeners first
+      socket.off("new_notification");
+      
+      // Then add the new listener
       socket.on("new_notification", (notification) => {
+        console.log("Received notification:", notification);
+        
+        // If we can't display it now, queue it
+        if (!document.hasFocus() || !Notification.permission === "granted") {
+          setPendingNotifications(prev => [...prev, notification]);
+          return;
+        }
         let { from, message } = notification;
         // Convert message to string if needed
         if (typeof message !== "string") {
@@ -77,6 +91,9 @@ const Home = () => {
             progressClassName: "bg-blue-500",
           });
         }
+        
+        // After displaying notification
+        console.log("Notification displayed:", message);
       });
     }
 
@@ -92,8 +109,32 @@ const Home = () => {
     };
   }, [socket, initializeChat]);
 
-  // Determine which component to render
-  const renderChatComponent = () => {
+  // Process any pending notifications
+  useEffect(() => {
+    if (pendingNotifications.length > 0 && socket) {
+      console.log("Processing pending notifications:", pendingNotifications);
+      pendingNotifications.forEach(notification => {
+        let { message } = notification;
+        if (typeof message !== "string") {
+          message = JSON.stringify(message);
+        }
+        
+        toast.info(message, {
+          position: "top-right",
+          autoClose: 3000,
+          className: "bg-base-100 text-base-content font-work-sans shadow-md rounded-lg",
+          bodyClassName: "text-sm",
+          progressClassName: "bg-blue-500",
+        });
+      });
+      
+      setPendingNotifications([]);
+    }
+  }, [pendingNotifications, socket]);
+  
+  // In your socket listener
+  useEffect(() => {
+    // Determine which component to render
     if (globalChatSelected) {
       return <GlobalChat />;
     }
