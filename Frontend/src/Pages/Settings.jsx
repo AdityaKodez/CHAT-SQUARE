@@ -13,6 +13,7 @@ const SettingsPage = () => {
   return (
     <div className="min-h-screen container mx-auto px-4 pt-30 max-w-5xl pb-6 font-work-sans">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 space-y-6 lg:space-y-0">
+        
         {/* Theme Section */}
         <div>
           <div className="flex flex-col gap-1">

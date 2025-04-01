@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState,useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { AlertCircle, BadgeCheck, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Bell, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,7 +9,20 @@ const Profile = () => {
   const [charCount, setCharCount] = useState(authUser?.description?.length || 0);
   const MAX_CHARS = 100;
 
-  
+  const [notificationPermission, setNotificationPermission] = useState(
+    Notification.permission
+  );
+
+  useEffect(() => {
+    // Update the permission state when the component mounts
+    setNotificationPermission(Notification.permission);
+  }, []);
+
+  const requestNotificationPermission = () => {
+    Notification.requestPermission().then((permission) => {
+      setNotificationPermission(permission);
+    });
+  };
   const handleTextareaChange = (e) => {
     const text = e.target.value;
     
@@ -153,7 +166,22 @@ const Profile = () => {
           },
         }}
       />
-      
+      {notificationPermission !== "granted" && (
+  <div className="bg-base-100 border border-primary-content text-primary rounded-lg p-3 mb-4 shadow-md flex items-center justify-between font-work-sans">
+    <div>
+      <p className="font-semibold text-sm">Enable Notifications</p>
+      <p className="text-xs text-base-content/60 mt-1 w-[90%]">
+        Stay updated with new messages by enabling notifications.
+      </p>
+    </div>
+    <button
+      onClick={requestNotificationPermission}
+      className="btn btn-sm btn-info btn-soft"
+    >
+      Enable
+    </button>
+  </div>
+)}
       <div className="max-w-4xl mx-auto rounded-2xl p-6 md:p-8 w-full">
         <div className='w-full flex flex-col sm:flex-row justify-between items-center sm:items-start mb-8'>
           <div className="flex items-center gap-2">
@@ -165,6 +193,7 @@ const Profile = () => {
               <LogOutIcon size="1rem"/>
               <span>Logout</span>
             </button>
+         
             <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm btn-soft btn-error flex items-center gap-1 px-3">
               <User2 size="1rem"/>
               <span>Delete Account</span>
