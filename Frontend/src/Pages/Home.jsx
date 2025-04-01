@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import ChatStore from "../store/useChatStore";
 import { useAuthStore } from "../store/useAuthStore";
 import Sidebar from "./Sidebar";
@@ -132,9 +132,8 @@ const Home = () => {
     }
   }, [pendingNotifications, socket]);
   
-  // In your socket listener
-  useEffect(() => {
-    // Determine which component to render
+  // Determine which component to render - moved outside of useEffect
+  const renderChatComponent = () => {
     if (globalChatSelected) {
       return <GlobalChat />;
     }
