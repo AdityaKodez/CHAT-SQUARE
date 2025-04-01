@@ -13,6 +13,7 @@ const ChatStore = create((set, get) => ({
   messages: [],
   messageCount:null,
   users: [],
+  Notifications: [],
   IsTyping: false,
   onlineUsers: [], // Add this to track online users
   SelectedUser: null,
@@ -21,6 +22,7 @@ const ChatStore = create((set, get) => ({
   isMessageLoading: false,
   isSendingMessage: false,
   typingUsers: {}, // Track typing status per conversation
+
 
   // Add this method to update online users
   setOnlineUsers: (onlineUserIds) => {

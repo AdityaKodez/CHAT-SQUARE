@@ -8,6 +8,7 @@ const Profile = () => {
   const { authUser, isUpdatingProfile, updateProfile, logout, DeleteAccount } = useAuthStore();
   const [charCount, setCharCount] = useState(authUser?.description?.length || 0);
   const MAX_CHARS = 100;
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   
   const handleTextareaChange = (e) => {
     const text = e.target.value;
@@ -102,6 +103,12 @@ const Profile = () => {
       console.error(error);
       toast.error("Failed to update profile. Please try again.");
     }
+  };
+
+  const handleToggleNotifications = () => {
+    setNotificationsEnabled(prev => !prev);
+    // Optionally, call an API or update the auth store to persist preference:
+    // updateNotificationsPreference(!notificationsEnabled)
   };
 
   // Animation variants for the modal
@@ -256,6 +263,19 @@ const Profile = () => {
               </div>
             </div> 
 
+            {/* Added Notifications Toggle */}
+            <div className="flex items-center gap-2 my-4">
+              <label htmlFor="notif-toggle" className="font-work-sans text-base font-medium">
+                Enable Notifications:
+              </label>
+              <input
+                id="notif-toggle"
+                type="checkbox"
+                checked={notificationsEnabled}
+                onChange={handleToggleNotifications}
+                className="toggle toggle-primary" // use your preferred toggle styling
+              />
+            </div>
           
             <div className="flex flex-col w-full gap-4">
               <button
