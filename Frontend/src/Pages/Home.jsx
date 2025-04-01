@@ -1,11 +1,11 @@
 import { useEffect, useCallback } from "react";
-import { useAuthStore } from "../store/useAuthStore";
 import ChatStore from "../store/useChatStore";
+import { useAuthStore } from "../store/useAuthStore";
 import Sidebar from "./Sidebar";
 import GlobalChat from "../components/GlobalChat";
 import ChatContainer from "./ChatContainer";
 import Nochatselected from "./Nochatselected";
-import{Toaster,toast} from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 
 const Home = () => {
   const {
@@ -29,8 +29,22 @@ const Home = () => {
   }, [initializeSocketListeners, getGlobalMessages]);
 
   useEffect(() => {
-    initializeChat();
+    // Initialize chat system when component mounts
+    const initChat = async () => {
+      if (useAuthStore.getState().authUser) {
+        await ChatStore.getState().initializeChat();
+      }
+    };
+    
+    initChat();
+    
+    // Clean up on unmount
+    return () => {
+      // Any cleanup if needed
+    };
+  }, []);
 
+  useEffect(() => {
     // Request browser notification permission
     if ("Notification" in window) {
       Notification.requestPermission().then((permission) => {

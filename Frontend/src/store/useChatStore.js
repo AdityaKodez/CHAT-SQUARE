@@ -44,7 +44,7 @@ const ChatStore = create((set, get) => ({
     if (!socket) return;
     
     // Remove existing listeners first to prevent duplicates
-    socket.off("global_message").off("global_message_deleted").off("online-users").off("typing");
+    socket.off("global_message").off("global_message_deleted").off("online-users").off("typing").off("private_message").off("new_notification");
     
     // Listen for global messages
     socket.on("global_message", (message) => {
@@ -114,7 +114,9 @@ const ChatStore = create((set, get) => ({
       }));
     });
 
+    // Improved private message handling with notification support
     socket.on("private_message", (message) => {
+      console.log("Received private message:", message);
       const state = get();
       const conversationId = message.sender._id;
       const existingMessages = state.conversations[conversationId] || [];
@@ -147,9 +149,21 @@ const ChatStore = create((set, get) => ({
 
         // Show notification for new message if it's not from the current user
         if (message.sender._id !== useAuthStore.getState().authUser?._id) {
-          toast.success(`New message from ${message.sender.name}`);
+          toast.success(`New message from ${message.sender.name || message.sender.fullName}`);
         }
       }
+    });
+
+    // Add direct notification listener
+    socket.on("new_notification", (notification) => {
+      console.log("Received notification:", notification);
+      // Show toast notification regardless of current page/state
+      toast.success(notification.message);
+      
+      // Add to notifications array if needed
+      set((state) => ({
+        Notifications: [...state.Notifications, notification]
+      }));
     });
   },
   // Add this method to format last online time
