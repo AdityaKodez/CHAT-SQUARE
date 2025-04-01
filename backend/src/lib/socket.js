@@ -34,30 +34,51 @@ io.on("connection", (socket) => {
   });
 
   socket.on("private message", async ({ to, message }) => {
-    const recipientSocket = userSockets.get(to);
-    if (recipientSocket) {
-      const senderId = [...userSockets.entries()]
-        .find(([_, socketId]) => socketId === socket.id)?.[0];
-
-      // Send the private message
-      io.to(recipientSocket).emit("private message", {
-        from: senderId,
-        message,
-      });
-      const sender = await User.findById(senderId).select("fullName");
-      // Determine the message text:
-      const messageText = typeof message === "object" && message.content
-        ? message.content 
-        : message;
-      // Send a notification to the recipient with proper string conversion
-      io.to(recipientSocket).emit("new_notification", {
-        from: senderId,
-        message: `${sender.fullName}: ${messageText}`,
-        timestamp: new Date().toISOString(),
-      });
-      console.log(`Notification sent to ${to} from ${senderId}`);
-    } else {
-      console.log(`Recipient ${to} not found or offline`);
+    try {
+      const recipientSocket = userSockets.get(to);
+      if (recipientSocket) {
+        const senderId = [...userSockets.entries()]
+          .find(([_, socketId]) => socketId === socket.id)?.[0];
+  
+        // Send the private message
+        io.to(recipientSocket).emit("private message", {
+          from: senderId,
+          message,
+        });
+        
+        const sender = await User.findById(senderId).select("fullName");
+        // Determine the message text:
+        const messageText = typeof message === "object" && message.content
+          ? message.content 
+          : message;
+          
+        // Send a notification to the recipient with proper string conversion
+        // Send with acknowledgement
+        io.to(recipientSocket).emit("new_notification", {
+          from: senderId,
+          message: `${sender.fullName}: ${messageText}`,
+          timestamp: new Date().toISOString(),
+        }, (acknowledgement) => {
+          if (acknowledgement && acknowledgement.received) {
+            console.log(`Notification acknowledged by ${to}`);
+          } else {
+            console.log(`Notification might not have been received by ${to}`);
+            // Implement retry logic
+          }
+        });
+        console.log(`Notification sent to ${to} from ${senderId}`);
+      } else {
+        console.log(`Recipient ${to} not found or offline, storing notification`);
+        // Store notification in database for later delivery
+        try {
+          // Create a new notification document in your database
+          // You would need to create a notification model for this
+        } catch (error) {
+          console.error("Error storing notification:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error sending private message:", error);
     }
   });
 
