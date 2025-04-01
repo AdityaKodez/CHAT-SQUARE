@@ -80,23 +80,33 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  // Filter users based on online status
-  const filteredUsers = useMemo(() => {
+  // Filter and sort users based on online status
+  const sortedUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter(user => {
-      // Don't show current user in the list
+    
+    const filtered = users.filter(user => {
       if (user._id === authUser?._id) return false;
-      // If showOnlineOnly is true, only show online users
       if (showOnlineOnly) return onlineUsers.includes(user._id);
       return true;
     });
+
+    // Sort users - online users first
+    return filtered.sort((a, b) => {
+      const aIsOnline = onlineUsers.includes(a._id);
+      const bIsOnline = onlineUsers.includes(b._id);
+      if (aIsOnline && !bIsOnline) return -1;
+      if (!aIsOnline && bIsOnline) return 1;
+      return 0;
+    });
   }, [users, showOnlineOnly, onlineUsers, authUser]);
+
   useEffect(() => {
     // Fetch unseen messages for each user
-    filteredUsers.forEach(user => {
+    sortedUsers.forEach(user => {
       ChatStore.getState().fetchUnseenMessages(user._id);
     });
-  }, [filteredUsers]);
+  }, [sortedUsers]);
+
   if (isUserLoading) return <SidebarSkeleton />;
 
   // Function to get the last message for a user
@@ -175,8 +185,8 @@ const Sidebar = () => {
           </div>
         </button>
         
-        {filteredUsers.length > 0 ? (
-          filteredUsers.map((user) => (
+        {sortedUsers.length > 0 ? (
+          sortedUsers.map((user) => (
             <button
               key={user._id}
               onClick={() => setSelectedUser(user)}
