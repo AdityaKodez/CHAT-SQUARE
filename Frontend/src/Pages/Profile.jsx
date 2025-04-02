@@ -1,6 +1,6 @@
 import { useState,useEffect } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { AlertCircle, BadgeCheck, Bell, Camera, Loader2, LogOutIcon, Mail, User, User2, X } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Bell, Camera, Loader2, LogOutIcon, Mail, Settings, User, User2, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,6 +22,57 @@ const Profile = () => {
     Notification.requestPermission().then((permission) => {
       setNotificationPermission(permission);
     });
+  };
+  
+  // Function to open browser notification settings based on browser type
+  const openBrowserSettings = () => {
+    try {
+      const browser = detectBrowser();
+      let settingsURL = '';
+      
+      switch(browser) {
+        case 'chrome':
+          settingsURL = 'chrome://settings/content/notifications';
+          break;
+        case 'firefox':
+          settingsURL = 'about:preferences#privacy';
+          break;
+        case 'edge':
+          settingsURL = 'edge://settings/content/notifications';
+          break;
+        case 'safari':
+          settingsURL = 'safari://settings/notifications';
+          break;
+        default:
+          toast.info('Please enable notifications in your browser settings');
+          return;
+      }
+      
+      // Open settings in a new tab
+      window.open(settingsURL, '_blank');
+      toast.info('Browser settings opened. Please enable notifications for this site.');
+    } catch (err) {
+      toast.error('Browser Denying please open settings by yourself');
+      console.log('Failed to open browser settings', err);
+    }
+
+  };
+  
+  // Helper function to detect browser type
+  const detectBrowser = () => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    
+    if (userAgent.indexOf('chrome') > -1 && userAgent.indexOf('edge') === -1) {
+      return 'chrome';
+    } else if (userAgent.indexOf('firefox') > -1) {
+      return 'firefox';
+    } else if (userAgent.indexOf('edge') > -1) {
+      return 'edge';
+    } else if (userAgent.indexOf('safari') > -1 && userAgent.indexOf('chrome') === -1) {
+      return 'safari';
+    } else {
+      return 'unknown';
+    }
   };
   const handleTextareaChange = (e) => {
     const text = e.target.value;
@@ -166,7 +217,7 @@ const Profile = () => {
           },
         }}
       />
-      {notificationPermission !== "granted" && (
+      {notificationPermission === "default" && (
   <div className="bg-base-100 border border-primary-content text-primary rounded-lg p-3 mb-4 shadow-md flex items-center justify-between font-work-sans">
     <div>
       <p className="font-semibold text-sm">Enable Notifications</p>
@@ -179,6 +230,23 @@ const Profile = () => {
       className="btn btn-sm btn-info btn-soft"
     >
       Enable
+    </button>
+  </div>
+)}
+
+      {notificationPermission === "denied" && (
+  <div className="bg-base-100 border border-error-content text-error rounded-lg p-3 mb-4 shadow-md flex items-center justify-between font-work-sans">
+    <div>
+      <p className="font-semibold text-sm">Notifications Blocked</p>
+      <p className="text-xs text-base-content/60 mt-1 w-[90%]">
+        You've blocked notifications. Go to browser settings to enable them.
+      </p>
+    </div>
+    <button
+      onClick={openBrowserSettings}
+      className="btn btn-sm btn-error btn-soft"
+    >
+      <Settings size="1rem"/> Settings
     </button>
   </div>
 )}
