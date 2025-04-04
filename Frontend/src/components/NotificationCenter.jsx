@@ -18,7 +18,7 @@ const NotificationCenter = () => {
   } = useNotificationStore();
 
   
-  // Check notification permission on mount and when the dropdown opens
+ 
   useEffect(() => {
     // Always check permission on mount
     setNotificationPermission(getNotificationPermission());
