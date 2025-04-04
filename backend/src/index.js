@@ -9,6 +9,7 @@ import { connectDB } from "./lib/lib.js";
 const __dirname = path.resolve();
 import cookieParser from "cookie-parser";
 import Messagerouter from "./routes/message.route.js";
+import notificationRouter from "./routes/notification.route.js";
 
 app.use(cookieParser());
 
@@ -30,6 +31,7 @@ app.use(cors(
 // API routes
 app.use("/api/auth", router)
 app.use("/api/message", Messagerouter)
+app.use("/api/notification", notificationRouter)
 
 // Serve static files in production
 if(process.env.NODE_ENV === "production"){

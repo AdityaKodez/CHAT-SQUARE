@@ -1,6 +1,7 @@
 import { MessageSquare, Settings, User2Icon } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Link, useLocation } from "react-router-dom";
+import NotificationCenter from "@/components/NotificationCenter";
 
 const NavBar = () => {
   const { authUser } = useAuthStore();
@@ -17,6 +18,9 @@ const NavBar = () => {
       <div className="settings flex items-center gap-3 pr-3">
         {authUser && (
           <>
+           
+       
+            
             {location.pathname !== "/profile" && (
               <Link to={"/profile"}>
                 <button className="btn btn-sm btn-soft btn-info">
@@ -35,6 +39,7 @@ const NavBar = () => {
             Settings
           </button>
         </Link>
+        <NotificationCenter size="1rem" />
       </div>
     </div>
   );

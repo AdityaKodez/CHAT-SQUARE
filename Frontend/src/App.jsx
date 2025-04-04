@@ -5,18 +5,49 @@ import Login from "./Pages/Login.jsx";
 import Profile from "./Pages/Profile.jsx";
 import Home from "./Pages/Home.jsx";
 import { useAuthStore } from "./store/useAuthStore";
-import { useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // Import AnimatePresence for exit animations AnimatePresence } from "framer-motion"; // Import AnimatePresence for exit animations
+import { useEffect, useState } from "react"; // Added useState
+import { motion, AnimatePresence } from "framer-motion";
 import NotFound from "./Pages/NotFound";
 import { useTheme } from "./store/useTheme.js";
 import{Toaster,toast} from "react-hot-toast";
 import useNetworkStatus from "./const/Network";
 import ChatStore from "./store/useChatStore";
 import SettingsPage from "./Pages/Settings.jsx";
+import NotificationService from "./components/NotificationService";
+import { getNotificationPermission } from "./lib/browserNotifications"; // Import this
+
 const App = () => {
   const { theme } = useTheme();
   const { authUser, isCheckingAuth } = useAuthStore();
   const isOnline = useNetworkStatus();
+  const [notificationPermission, setNotificationPermission] = useState(null);
+  
+  // Check notification permission on mount and periodically
+  useEffect(() => {
+    if (authUser) {
+      const checkPermission = async () => {
+        // Get current permission
+        const permission = getNotificationPermission();
+        setNotificationPermission(permission);
+        
+        // If permission is not determined yet, request it
+        if (permission === 'default') {
+          console.log('Requesting notification permission');
+          const newPermission = await requestNotificationPermission();
+          setNotificationPermission(newPermission);
+          console.log('New notification permission:', newPermission);
+        }
+      };
+      
+      // Check immediately
+      checkPermission();
+      
+      // Then check periodically (in case user changes browser settings)
+      const permissionInterval = setInterval(checkPermission, 30000);
+      return () => clearInterval(permissionInterval);
+    }
+  }, [authUser]);
+  
   useEffect(() => {
     // Initialize socket listeners when socket is available
     const { socket } = useAuthStore.getState();
@@ -24,6 +55,7 @@ const App = () => {
       ChatStore.getState().initializeSocketListeners();
     }
   }, [useAuthStore.getState().socket]);
+  
   useEffect(() => {
     if (!isOnline) {
       toast.error('Please check your internet connection.');
@@ -31,6 +63,7 @@ const App = () => {
       toast.success('You are back online!');
     }
   }, [isOnline]);
+  
   useEffect(() => {
     const checkAuth = async () => {
       if (isCheckingAuth) {
@@ -40,6 +73,16 @@ const App = () => {
     const timer = setTimeout(checkAuth, 2000);
     return () => clearTimeout(timer); // Cleanup timeout on unmount
   }, [isCheckingAuth]);
+
+  // Show notification blocked warning if needed
+  useEffect(() => {
+    if (authUser && notificationPermission === 'denied') {
+      toast.error(
+        'Notifications are blocked. Please enable them in your browser settings for a better experience.',
+        { duration: 6000, id: 'notification-blocked' }
+      );
+    }
+  }, [authUser, notificationPermission]);
 
   console.log({ authUser });
 
@@ -109,9 +152,7 @@ const App = () => {
       transition={{ duration: 0.5, ease: "easeInOut" }}
       className="w-screen"
       data-theme={theme}
-
     >
-    {/* Toaster for displaying notifications */}  {/* Add toast.success/error/info/warning/error() */}  {/* Example: toast.success('Account created successfully!') */}  {/* Toast will automatically disappear after 3 seconds */}  {/* You can customize toast duration and position using toast.configure() */}  {/* Example: toast.configure({autoClose: 5000 }) */}
       <NavBar />
    
       <Routes>
@@ -136,9 +177,22 @@ const App = () => {
   return (
     <AnimatePresence mode="wait">
       {isCheckingAuth ? (
-        <Loader key="loader" /> // Use key to ensure proper mount/unmount
+        <Loader key="loader" />
       ) : (
-        <AppContent key="app-content" />
+        <>
+          {authUser && <NotificationService />}
+          <AppContent key="app-content" />
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              className: '!bg-primary!text-white text-sm font-poppins',
+              iconTheme: {
+                primary: 'white',
+                secondary: 'green',
+              },
+            }}
+          />
+        </>
       )}
     </AnimatePresence>
   );

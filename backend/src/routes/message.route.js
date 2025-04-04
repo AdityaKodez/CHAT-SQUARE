@@ -13,8 +13,7 @@ Messagerouter.get("/users", protectRoute, getUserForSidebar);
 Messagerouter.get("/:userId", protectRoute, getMessages);
 Messagerouter.post("/send/:userId", protectRoute, sendMessage);
 Messagerouter.delete("/:messageId", protectRoute, DeleteMessage);
-
-// Add this new route
+// notification routes
 Messagerouter.get("/unseen/:senderId", protectRoute, UnseenMessage);
 Messagerouter.put("/markAsRead/:senderId", protectRoute, markMessagesAsRead);
 

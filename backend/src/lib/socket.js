@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import http from "http";
 import express from "express";
 import User from "../models/user.model.js";
+import Notification from "../models/Notification.model.js";
+import { sendPushNotification } from "./pushNotification.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -26,61 +28,133 @@ io.on("connection", (socket) => {
     console.log("Broadcasting online users:", onlineUsers);
   };
 
-  socket.on("setup", (userId) => {
+  socket.on("setup", async (userId) => {
     userSockets.set(userId, socket.id);
     socket.join(userId);
     console.log(`User ${userId} setup complete`);
     broadcastOnlineUsers();
+    
+    // Deliver any stored notifications when user comes online
+    try {
+      const storedNotifications = await Notification.find({ 
+        receiverId: userId,
+        read: false 
+      }).sort({ createdAt: -1 }).limit(10);
+      
+      if (storedNotifications.length > 0) {
+        console.log(`Delivering ${storedNotifications.length} stored notifications to ${userId}`);
+        
+        for (const notification of storedNotifications) {
+          const sender = await User.findById(notification.senderId).select("fullName profilePic");
+          if (sender) {
+            socket.emit("new_notification", {
+              _id: notification._id,
+              from: notification.senderId,
+              message: `${sender.fullName}: ${notification.message}`,
+              senderName: sender.fullName,
+              senderProfilePic: sender.profilePic || "",
+              timestamp: notification.createdAt,
+              createdAt: notification.createdAt,
+              read: notification.read,
+              delivered: notification.delivered || false
+            });
+            
+            // Acknowledge delivery
+            await Notification.findByIdAndUpdate(notification._id, { delivered: true });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error delivering stored notifications:", error);
+    }
   });
 
   socket.on("private message", async ({ to, message }) => {
     try {
+      const senderId = [...userSockets.entries()]
+        .find(([_, socketId]) => socketId === socket.id)?.[0];
+      
+      if (!senderId) {
+        console.error("Could not identify sender");
+        return;
+      }
+
+      const sender = await User.findById(senderId).select("fullName");
+      const messageText = typeof message === "object" && message.content
+        ? message.content 
+        : message;
+      
       const recipientSocket = userSockets.get(to);
       if (recipientSocket) {
-        const senderId = [...userSockets.entries()]
-          .find(([_, socketId]) => socketId === socket.id)?.[0];
-  
-        // Send the private message
+        // Recipient is online, send message directly
         io.to(recipientSocket).emit("private message", {
           from: senderId,
           message,
         });
         
-        const sender = await User.findById(senderId).select("fullName");
-        // Determine the message text:
-        const messageText = typeof message === "object" && message.content
-          ? message.content 
-          : message;
-          
-        // Send a notification to the recipient with proper string conversion
-        // Send with acknowledgement
+        // Send notification with acknowledgement
         io.to(recipientSocket).emit("new_notification", {
+          _id: `temp-${Date.now()}`, // Temporary ID for real-time notifications
           from: senderId,
           message: `${sender.fullName}: ${messageText}`,
+          senderName: sender.fullName,
+          senderProfilePic: sender.profilePic || "",
           timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          read: false,
+          delivered: true
         }, (acknowledgement) => {
           if (acknowledgement && acknowledgement.received) {
             console.log(`Notification acknowledged by ${to}`);
           } else {
             console.log(`Notification might not have been received by ${to}`);
-            // Implement retry logic
+            // Store notification in case it wasn't received
+            storeNotification(to, senderId, messageText);
           }
         });
         console.log(`Notification sent to ${to} from ${senderId}`);
       } else {
         console.log(`Recipient ${to} not found or offline, storing notification`);
-        // Store notification in database for later delivery
-        try {
-          // Create a new notification document in your database
-          // You would need to create a notification model for this
-        } catch (error) {
-          console.error("Error storing notification:", error);
-        }
+        // Store notification and send push notification
+        await storeNotification(to, senderId, messageText);
       }
     } catch (error) {
       console.error("Error sending private message:", error);
     }
   });
+  
+  // Helper function to store notifications and send push notification
+  async function storeNotification(receiverId, senderId, messageText) {
+    try {
+      const notification = new Notification({
+        receiverId: receiverId,
+        senderId: senderId,
+        message: messageText,
+        createdAt: new Date(),
+        read: false,
+        delivered: false
+      });
+      await notification.save();
+      console.log("Notification stored in database");
+
+      // Get sender info for push notification
+      const sender = await User.findById(senderId).select("fullName");
+      
+      // Send push notification
+      await sendPushNotification(receiverId, {
+        title: `New Message from ${sender.fullName}`,
+        body: messageText,
+        data: {
+          notificationId: notification._id.toString(),
+          senderId: senderId.toString()
+        }
+      });
+      
+      console.log("Push notification sent");
+    } catch (error) {
+      console.error("Error storing notification or sending push:", error);
+    }
+  }
 
   socket.on("typing", ({ to, isTyping, from }) => {
     const recipientSocket = userSockets.get(to);
@@ -120,6 +194,23 @@ io.on("connection", (socket) => {
       .find(([_, socketId]) => socketId === socket.id)?.[0];
     if (senderId) {
       socket.broadcast.emit("global_typing", { userId: senderId, isTyping, fullName });
+    }
+  });
+  
+  // Handle notification acknowledgment
+  socket.on("notification_received", async ({ notificationId, received }) => {
+    if (received && notificationId) {
+      try {
+        // If it's a database notification with an ID, mark it as delivered
+        if (notificationId.toString().startsWith('temp-')) {
+          console.log(`Temporary notification acknowledged: ${notificationId}`);
+        } else {
+          await Notification.findByIdAndUpdate(notificationId, { delivered: true });
+          console.log(`Notification ${notificationId} marked as delivered`);
+        }
+      } catch (error) {
+        console.error(`Error marking notification ${notificationId} as delivered:`, error);
+      }
     }
   });
 });

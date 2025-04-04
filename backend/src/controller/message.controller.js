@@ -1,7 +1,7 @@
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
-
+import Notification from "../models/Notification.model.js";
 export const getUserForSidebar = async (req, res) => {
     try {
         const LoggedInUserId = req.user._id;
@@ -14,6 +14,95 @@ export const getUserForSidebar = async (req, res) => {
     }
 };
 
+// Get all unread notifications for a user
+export const getUnreadNotifications = async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const notifications = await Notification.find({ 
+        receiverId: userId,
+        read: false 
+      }).sort({ createdAt: -1 });
+      
+      // Populate sender information
+      const populatedNotifications = await Promise.all(
+        notifications.map(async (notification) => {
+          const sender = await User.findById(notification.senderId).select("fullName profilePic");
+          return {
+            ...notification._doc,
+            sender
+          };
+        })
+      );
+      
+      res.status(200).json(populatedNotifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Error fetching notifications" });
+    }
+  };
+  
+  // Mark notifications as read
+  export const markAsRead = async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
+      
+      if (!notificationIds || !Array.isArray(notificationIds)) {
+        return res.status(400).json({ message: "Invalid notification IDs" });
+      }
+      
+      await Notification.updateMany(
+        { _id: { $in: notificationIds }, receiverId: req.user._id },
+        { $set: { read: true } }
+      );
+      
+      res.status(200).json({ message: "Notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+      res.status(500).json({ message: "Error marking notifications as read" });
+    }
+  };
+  
+  // Mark notifications as delivered
+  export const markAsDelivered = async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
+      
+      if (!notificationIds || !Array.isArray(notificationIds)) {
+        return res.status(400).json({ message: "Invalid notification IDs" });
+      }
+      
+      await Notification.updateMany(
+        { _id: { $in: notificationIds }, receiverId: req.user._id },
+        { $set: { delivered: true } }
+      );
+      
+      res.status(200).json({ message: "Notifications marked as delivered" });
+    } catch (error) {
+      console.error("Error marking notifications as delivered:", error);
+      res.status(500).json({ message: "Error marking notifications as delivered" });
+    }
+  };
+  
+  // Delete notifications
+  export const deleteNotifications = async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
+      
+      if (!notificationIds || !Array.isArray(notificationIds)) {
+        return res.status(400).json({ message: "Invalid notification IDs" });
+      }
+      
+      await Notification.deleteMany({ 
+        _id: { $in: notificationIds }, 
+        receiverId: req.user._id 
+      });
+      
+      res.status(200).json({ message: "Notifications deleted" });
+    } catch (error) {
+      console.error("Error deleting notifications:", error);
+      res.status(500).json({ message: "Error deleting notifications" });
+    }
+  };
 export const getMessages = async (req, res) => {
     try {
         const { userId: userToChat } = req.params;
@@ -60,22 +149,6 @@ export const getMessages = async (req, res) => {
         res.status(500).json({ message: "Internal server error while fetching messages" });
     }
 };
-
-export const markAsRead = async (req, res) => {
-    try {
-        const {messageId} = req.params;
-        const message = await Message.findById(messageId);
-       if(!message){
-         return res.status(404).json({ message: "Message not found" });
-       }
-        message.isRead = true;
-        await message.save();
-        res.status(200).json({ message: "Message marked as read" });
-    } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-}
 
 export const sendMessage = async (req, res) => {
     try {
