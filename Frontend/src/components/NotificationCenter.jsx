@@ -6,8 +6,10 @@ import ChatStore from '../store/useChatStore';
 import { formatDistanceToNow } from 'date-fns';
 import { getNotificationPermission, requestNotificationPermission } from '@/lib/browserNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
+// Add this at the top of your file, after the imports
 const NotificationCenter = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState(getNotificationPermission());
   const { 
     notifications, 
@@ -121,12 +123,32 @@ const NotificationCenter = () => {
     setNotificationPermission(permission);
   };
   
+  // Add this handler function
+  const handleBellClick = () => {
+    setIsOpen(!isOpen);
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 500);
+  };
+  
   return (
 
     <div className="relative">
+      <style>
+        {`
+          @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+          }
+          .shake-animation {
+            animation: shake 0.5s ease-in-out;
+          }
+        `}
+      </style>
+      
       <button 
-        className="btn btn-ghost btn-circle relative"
-        onClick={() => setIsOpen(!isOpen)}
+        className={`btn btn-ghost btn-circle relative ${isShaking ? 'shake-animation' : ''}`}
+        onClick={handleBellClick}
       >
         <Bell size="1rem" />
         {unreadCount > 0 && (
