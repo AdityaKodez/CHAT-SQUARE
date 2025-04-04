@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Send, Trash2, Loader2, Info, X,BadgeCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
@@ -180,7 +180,7 @@ const ChatContainer = () => {
   const typingTimeoutRef = useRef(null);
   
   // Handle input changes for typing indicator
-  const handleInputChange = (e) => {
+  const handleInputChange = () => {
     if (!isTyping && SelectedUser) {
       setIsTyping(true);
       sendTypingStatus({ 
@@ -406,12 +406,13 @@ const ChatContainer = () => {
                     >
                       {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                    
-                    {/* Delete button for own messages */}
+                
                     {isMyMessage && (
                       <button
                         onClick={() => DeleteMessage(message._id, SelectedUser._id)}
-                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full 
+                                    opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100
+                                    transition-opacity touch-action-manipulation"
                         aria-label="Delete message"
                       >
                         <Trash2 size={14} />
