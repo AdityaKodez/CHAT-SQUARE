@@ -565,9 +565,30 @@ deleteGlobalMessage: async function(messageId) {
        console.warn("Socket not available for message deletion notification");
      }
      
+     // Only show success toast if we actually get here without errors
      toast.success("Message deleted successfully");
      return res.data;
    } catch (error) {
+     // Check if this is a 404 error (message already deleted)
+     if (error.response && error.response.status === 404) {
+       // Message was already deleted, so just update the UI and don't show an error
+       set((state) => {
+         if (state.conversations[conversationId]) {
+           return {
+             conversations: {
+               ...state.conversations,
+               [conversationId]: state.conversations[conversationId].filter(
+                 message => message._id !== messageId
+               )
+             }
+           };
+         }
+         return state;
+       });
+       return { success: true, message: "Message already deleted" };
+     }
+     
+     // For other errors, log and show error toast
      console.error("Error deleting message:", error);
      toast.error("Error deleting message");
      throw error; 

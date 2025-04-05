@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
 import { useAuthStore } from '@/store/useAuthStore';
-import { Send, Trash2, Loader2, Info, X,BadgeCheck } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { Send, Trash2, Loader2, Info, X, BadgeCheck } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion'; // Fixed import
+import ReactLinkify from "react-linkify";
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
@@ -21,34 +22,21 @@ const UserStatus = ({ userId }) => {
     </p>
   );
 };
+
 const Colors = [
-  "bg-blue-500",
-  "bg-green-500",
-  "bg-purple-500",
-  "bg-red-500",
-  "bg-yellow-500",
-  "bg-pink-500",
-  "bg-indigo-500",
-  "bg-teal-500",
+  "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500",
+  "bg-yellow-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500",
 ];
+
 const ChatContainer = () => {
   const { 
-    SelectedUser, 
-    conversations,
-    onlineUsers,
-    sendMessage,
-    isMessageLoading,
-    getMessages,
-    handleNewMessage,
-    DeleteMessage,
-    typingUsers,
-    sendTypingStatus
+    SelectedUser, conversations, onlineUsers, sendMessage, isMessageLoading,
+    getMessages, handleNewMessage, DeleteMessage, typingUsers, sendTypingStatus
   } = ChatStore();
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
   
-
   const messages = useMemo(() => {
     return SelectedUser && SelectedUser._id ? (conversations[SelectedUser._id] || []) : [];
   }, [SelectedUser, conversations]);
@@ -67,52 +55,33 @@ const ChatContainer = () => {
       messageEndRef.current.scrollIntoView({ behavior });
     }
   }, []);
+
   function getRandomColor(userId) {
-    // If no userId is provided, return the first color
     if (!userId) return Colors[0];
-    
-    // Simple string hash function for better distribution
     let hash = 0;
     for (let i = 0; i < userId.length; i++) {
-      // Multiply by 31 (common in hash functions) and add character code
       hash = ((hash << 5) - hash) + userId.charCodeAt(i);
-      hash = hash & hash; // Convert to 32bit integer
+      hash = hash & hash;
     }
-    
-    // Use absolute value to ensure positive index
     const index = Math.abs(hash) % Colors.length;
-    
-    // Log for debugging
-    console.log(`User ID: ${userId}, Hash: ${hash}, Color Index: ${index}, Color: ${Colors[index]}`);
-    
     return Colors[index];
   }
-  // Function to load more messages
+
   const loadMoreMessages = useCallback(async () => {
     if (!SelectedUser || isLoadingMoreMessages || !hasMore) return;
-    
     const container = messagesContainerRef.current;
     if (!container) return;
-    
-    // Store the current scroll height 
     const prevScrollHeight = container.scrollHeight;
     const prevScrollTop = container.scrollTop;
     
     try {
-     
       setIsLoadingMoreMessages(true);
-      
       const nextPage = currentPage + 1;
-      const pagination = await getMessages({ 
-        userId: SelectedUser._id, 
-        page: nextPage 
-      });
+      const pagination = await getMessages({ userId: SelectedUser._id, page: nextPage });
       
       if (pagination) {
         setCurrentPage(nextPage);
         setHasMore(pagination.hasMore);
-        
-        // After the messages are loaded and rendered, adjust scroll position
         setTimeout(() => {
           if (container) {
             const newScrollHeight = container.scrollHeight;
@@ -128,25 +97,16 @@ const ChatContainer = () => {
     }
   }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages]);
   
-  // Handle scroll events with improved detection
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    
-    // More reliable bottom detection (within 100px of bottom)
-    const isAtBottom = 
-      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     setIsScrolledToBottom(isAtBottom);
-    
-    // Check if scrolled to top for loading more messages
-    // Add a small threshold to prevent edge cases
     if (container.scrollTop < 20 && hasMore && !isLoadingMoreMessages) {
       loadMoreMessages();
     }
   }, [hasMore, isLoadingMoreMessages, loadMoreMessages]);
   
-  // Add scroll event listener
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
@@ -155,105 +115,71 @@ const ChatContainer = () => {
     }
   }, [handleScroll]);
   
-  // Initial scroll to bottom when messages load
   useEffect(() => {
     if (!isMessageLoading && messages.length > 0) {
-      // Use instant scroll on initial load
       scrollToBottom("auto");
       setIsScrolledToBottom(true);
     }
   }, [isMessageLoading, messages.length, scrollToBottom]);
   
-  // Reset pagination when changing users
   useEffect(() => {
     setCurrentPage(1);
     setHasMore(true);
-    
-    // Load initial messages for the selected user
     if (SelectedUser?._id) {
       getMessages({ userId: SelectedUser._id, page: 1 });
     }
   }, [SelectedUser?._id, getMessages]);
   
-  // Add this state to track if the user is currently typing
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
   
-  // Handle input changes for typing indicator
   const handleInputChange = () => {
     if (!isTyping && SelectedUser) {
       setIsTyping(true);
-      sendTypingStatus({ 
-        to: SelectedUser._id,
-        isTyping: true 
-      });
+      sendTypingStatus({ to: SelectedUser._id, isTyping: true });
     }
-
-    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-
-    // Set new timeout
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       if (SelectedUser) {
-        sendTypingStatus({ 
-          to: SelectedUser._id,
-          isTyping: false 
-        });
+        sendTypingStatus({ to: SelectedUser._id, isTyping: false });
       }
     }, 2000);
   };
 
-  // Cleanup timeout on unmount or when selected user changes
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      // Clear typing status when leaving chat or changing user
       if (SelectedUser?._id) {
-        sendTypingStatus({ 
-          to: SelectedUser._id,
-          isTyping: false 
-        });
+        sendTypingStatus({ to: SelectedUser._id, isTyping: false });
       }
     };
   }, [SelectedUser, sendTypingStatus]);
 
-  // Handle socket events
   useEffect(() => {
     if (!socket || !SelectedUser) return;
-
-    // Create event handler functions
     const handleTyping = ({ from, isTyping }) => {
       if (from === SelectedUser._id) {
         setIsOtherUserTyping(isTyping);
       }
     };
-
     const handlePrivateMessage = ({ from, message }) => {
       if (from === SelectedUser._id) {
         setIsOtherUserTyping(false);
       }
       handleNewMessage(message);
     };
-
     const handleMessageDeletion = ({ messageId, conversationId }) => {
-      console.log("Received message_deleted event:", messageId, conversationId);
       DeleteMessage(messageId, conversationId);
     };
-
-    // Remove existing listeners before adding new ones
     socket.off("typing").off("private message").off("message_deleted");
-
-    // Add event listeners
     socket.on("typing", handleTyping);
     socket.on("private message", handlePrivateMessage);
     socket.on("message_deleted", handleMessageDeletion);
-
-    // Cleanup
     return () => {
       socket.off("typing", handleTyping);
       socket.off("private message", handlePrivateMessage);
@@ -261,37 +187,22 @@ const ChatContainer = () => {
     };
   }, [socket, SelectedUser, handleNewMessage, DeleteMessage]);
 
- useEffect(() => {
-    // Only scroll to bottom when messages change if we're at the bottom already
-    // or if we're not loading more messages (pagination)
+  useEffect(() => {
     if (isScrolledToBottom && !isLoadingMoreMessages) {
       scrollToBottom();
     }
   }, [messages, scrollToBottom, isScrolledToBottom, isLoadingMoreMessages]);
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     const content = e.target.message.value;
     if (!content.trim()) return;
-
-    
     try {
-      await sendMessage({
-        userId: SelectedUser._id,
-        content
-      });
+      await sendMessage({ userId: SelectedUser._id, content });
       e.target.reset();
-      
-      // Clear typing status after sending message
       if (socket) {
-        socket.emit("typing", {
-          to: SelectedUser._id,
-          isTyping: false
-        });
+        socket.emit("typing", { to: SelectedUser._id, isTyping: false });
       }
-      
-      // Force scroll to bottom after sending
       setIsScrolledToBottom(true);
       setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
@@ -299,7 +210,6 @@ const ChatContainer = () => {
     }
   };
 
-  // Early return if SelectedUser is not available
   if (!SelectedUser) return null;
 
   return (
@@ -307,112 +217,81 @@ const ChatContainer = () => {
       {/* Chat Header */}
       <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full">
         <div className="flex items-center gap-3">
-          {
-            SelectedUser.profilePic ? 
-              <button 
-                onClick={() => setShowProfileModal(true)}
-                className="cursor-pointer hover:opacity-80 transition-opacity"
-              >
-                <img 
-                  src={SelectedUser.profilePic} 
-                  alt={userFullName} 
-                  className="w-10 h-10 rounded-lg object-cover" 
-                /> 
-              </button> : 
-              <button 
-                onClick={() => setShowProfileModal(true)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}
-              >
-                {userFirstInitial}
-              </button>
-          }
+          {SelectedUser.profilePic ? (
+            <button onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
+              <img src={SelectedUser.profilePic} alt={userFullName} className="w-10 h-10 rounded-lg object-cover" />
+            </button>
+          ) : (
+            <button onClick={() => setShowProfileModal(true)} className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}>
+              {userFirstInitial}
+            </button>
+          )}
           <div className='flex-1 flex flex-col'>
             <div className='flex justify-between items-center w-full'>
               <div className="flex items-center gap-1">
                 <h3 className="font-medium text-sm">{userFullName}</h3>
-                {
-                  SelectedUser.isVerified && (
-                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  )
-                }
+                {SelectedUser.isVerified && <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />}
               </div>
               <div className="ml-auto flex items-center gap-3">
-                <button 
-                  onClick={() => setShowProfileModal(true)}
-                  className="text-primary hover:text-primary-focus transition-colors"
-                  title="View profile"
-                >
+                <button onClick={() => setShowProfileModal(true)} className="text-primary hover:text-primary-focus transition-colors" title="View profile">
                   <Info size={16} />
                 </button>
-                {
-                  onlineUsers.includes(SelectedUser._id) ? 
-                    <span className="text-xs text-success">Online</span> : 
-                    <UserStatus userId={SelectedUser._id} />
-                }
+                {onlineUsers.includes(SelectedUser._id) ? (
+                  <span className="text-xs text-success">Online</span>
+                ) : (
+                  <UserStatus userId={SelectedUser._id} />
+                )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Messages Container with improved styling */}
-      <div 
-        ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
-      >
-        {/* Loading indicator for pagination */}
+      {/* Messages Container */}
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
         {isLoadingMoreMessages && (
           <div className="flex justify-center py-2">
             <Loader2 className="animate-spin h-6 w-6 text-primary" />
           </div>
         )}
-        
         {isMessageLoading ? (
           <div className="flex justify-center items-center h-full">
             <Loader2 className="animate-spin h-10 w-10 text-primary" />
           </div>
         ) : (
           <>
-          {
-            // Show "No messages yet" message if no messages
-            messages.length === 0 && !isMessageLoading && (
+            {messages.length === 0 && !isMessageLoading && (
               <div className="flex h-full w-full justify-center items-center text-base-content">
-                <p className='font-work-sans'>
-                  Start Your Chat Now!!
-                </p>
+                <p className='font-work-sans'>Start Your Chat Now!!</p>
               </div>
-            )
-          }
+            )}
             {messages.map((message) => {
               const isMyMessage = message.sender === authUser._id;
-              
               return (
-                <div
-                  key={`${message._id}-${message.createdAt}`} // Add createdAt to make keys unique
-                  className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`
-                      relative group max-w-[80%] rounded-xl p-3 shadow-sm
-                      ${isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"}
-                    `}
-                  >
-                    <p className="text-sm">{message.content}</p>
-                    <p
-                      className={`
-                        text-[10px] mt-1.5
-                        ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}
-                      `}
+                <div key={`${message._id}-${message.createdAt}`} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
+                  <div className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"}`}>
+                    <ReactLinkify
+                      componentDecorator={(href, text, key) => (
+                        <a
+                          href={href}
+                          key={key}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={isMyMessage ? "text-white underline hover:text-primary-content/80" : "text-blue-500 underline hover:text-blue-600"}
+                        >
+                          {text}
+                        </a>
+                      )}
                     >
+                      <p className="text-sm">{message.content}</p>
+                    </ReactLinkify>
+                    <p className={`text-[10px] mt-1.5 ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}`}>
                       {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
-                
                     {isMyMessage && (
                       <button
                         onClick={() => DeleteMessage(message._id, SelectedUser._id)}
-                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full 
-                                    opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100
-                                    transition-opacity touch-action-manipulation"
+                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity touch-action-manipulation"
                         aria-label="Delete message"
                       >
                         <Trash2 size={14} />
@@ -422,8 +301,6 @@ const ChatContainer = () => {
                 </div>
               );
             })}
-            
-            {/* Typing indicator */}
             {isOtherUserTyping && (
               <div className="flex justify-start">
                 <div className="bg-base-200 rounded-xl p-3 max-w-[80%]">
@@ -435,25 +312,20 @@ const ChatContainer = () => {
                 </div>
               </div>
             )}
-            
-            {/* Element to scroll to */}
             <div ref={messageEndRef} className="h-1" />
           </>
         )}
       </div>
 
-      {/* Show typing indicator */}
+      {/* Typing Indicator */}
       {typingUsers[SelectedUser?._id] && (
         <div className="text-sm text-gray-500 italic ml-4 mb-2">
           {SelectedUser.fullName} is typing...
         </div>
       )}
 
-      {/* Message Input with updated submit handler */}
-      <form 
-        className="p-3 border-t border-base-300 bg-base-100"
-        onSubmit={handleSubmit}
-      >
+      {/* Message Input */}
+      <form className="p-3 border-t border-base-300 bg-base-100" onSubmit={handleSubmit}>
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -463,10 +335,7 @@ const ChatContainer = () => {
             onChange={handleInputChange}
             autoComplete="off"
           />
-          <button
-            type="submit"
-            className="btn btn-primary btn-sm"
-          >
+          <button type="submit" className="btn btn-primary btn-sm">
             <Send size={18} />
           </button>
         </div>
@@ -491,73 +360,42 @@ const ChatContainer = () => {
               className="bg-base-100 rounded-xl shadow-xl max-w-md w-full p-6 relative"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => setShowProfileModal(false)}
-                className="absolute top-4 right-4 text-base-content/70 hover:text-base-content"
-              >
+              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 text-base-content/70 hover:text-base-content">
                 <X size={20} />
               </button>
-
               <div className="flex flex-col items-center text-center">
-                {/* User Avatar */}
-                <div className="mb-4">
-                  {SelectedUser.profilePic ? (
-                    <img
-                      src={SelectedUser.profilePic}
-                      alt={SelectedUser.fullName}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-primary/20"
-                    />
-                  ) : (
-                    <div
-                      className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(
-                        SelectedUser._id
-                      )}`}
-                    >
-                      <div>
-                <h1> {SelectedUser.fullName?.charAt(0).toUpperCase()}</h1>
-                {
-                  SelectedUser.isVerified && (
-                    <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  )
-                }
-                      </div>
-               
+                {SelectedUser.profilePic ? (
+                  <img src={SelectedUser.profilePic} alt={SelectedUser.fullName} className="w-24 h-24 rounded-full object-cover border-4 border-primary/20" />
+                ) : (
+                  <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(SelectedUser._id)}`}>
+                    <div>
+                      <h1>{SelectedUser.fullName?.charAt(0).toUpperCase()}</h1>
+                      {SelectedUser.isVerified && <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />}
                     </div>
-                  
-                  )}
-                </div>
-
-                {/* User Name and Status */}
+                  </div>
+                )}
                 <div className="flex items-center gap-1 mb-1">
                   <h3 className="text-xl font-bold">{SelectedUser.fullName}</h3>
-                  {SelectedUser.isVerified && (
-                    <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />
-                  )}
+                  {SelectedUser.isVerified && <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />}
                 </div>
                 <div className="mb-4">
                   {onlineUsers.includes(SelectedUser._id) ? (
                     <span className="text-sm text-success flex items-center justify-center gap-1">
-                      <span className="w-2 h-2 bg-success rounded-full"></span>
-                      Online now
+                      <span className="w-2 h-2 bg-success rounded-full"></span> Online now
                     </span>
                   ) : (
                     <UserStatus userId={SelectedUser._id} />
                   )}
                 </div>
-
-                {/* User Description */}
                 {SelectedUser.description && (
                   <div className="mb-6 max-w-xs">
                     <h4 className="text-sm font-medium mb-2 text-base-content/70">About</h4>
                     <p className="text-sm">{SelectedUser.description}</p>
                   </div>
                 )}
-
-                {/* User Email */}
                 {SelectedUser.email && (
                   <div className="text-sm text-base-content/70">
-                    <span className="font-medium">Email: </span>
-                    {SelectedUser.email}
+                    <span className="font-medium">Email: </span> {SelectedUser.email}
                   </div>
                 )}
               </div>
