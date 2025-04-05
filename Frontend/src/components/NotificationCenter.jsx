@@ -48,8 +48,14 @@ const NotificationCenter = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log('Fetching unread notifications...');
-        await fetchUnreadNotifications();
+        // Only fetch notifications if user is authenticated
+        const { authUser } = useAuthStore.getState();
+        if (authUser) {
+          console.log('Fetching unread notifications...');
+          await fetchUnreadNotifications();
+        } else {
+          console.log('User not authenticated, skipping notification fetch');
+        }
       } catch (error) {
         console.error('Failed to fetch notifications:', error);
       }

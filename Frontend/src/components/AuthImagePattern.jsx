@@ -2,11 +2,7 @@ import { User, Users, UserPlus, UserCheck, UserCog, UserCircle, MessageSquare, H
 
 const AuthImagePattern = ({ title, subtitle }) => {
     // Array of different user-related icons
-    const icons = [
-      <User className="text-white size-6" />,
-      <Users className="text-white size-6" />,
-     
-    ];
+    
 
     return (
       <div className="hidden lg:flex items-center justify-center p-12">
@@ -19,7 +15,6 @@ const AuthImagePattern = ({ title, subtitle }) => {
                   i % 2 === 0 ? "animate-pulse" : ""
                 } flex items-center justify-center`}
               >
-                {i % 2 === 0 && icons[i]}
               </div>
             ))}
           </div>

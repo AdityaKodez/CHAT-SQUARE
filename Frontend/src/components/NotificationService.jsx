@@ -65,7 +65,10 @@ const NotificationService = () => {
 
   // Handle socket notifications
   useEffect(() => {
-    if (!socket || !authUser) return;
+    if (!socket || !authUser) {
+      console.log('Socket or user not available, skipping notification setup');
+      return;
+    }
 
     const handleNewNotification = (notification) => {
       console.log('Received notification:', notification);
@@ -135,7 +138,12 @@ const NotificationService = () => {
     // Fetch unread notifications
     const fetchInitialNotifications = async () => {
       try {
-        await useNotificationStore.getState().fetchUnreadNotifications();
+        // Only fetch notifications if user is authenticated
+        if (authUser) {
+          await useNotificationStore.getState().fetchUnreadNotifications();
+        } else {
+          console.log('User not authenticated, skipping notification fetch');
+        }
       } catch (error) {
         console.error('Failed to fetch initial notifications:', error);
         toast.error('Failed to load notifications');

@@ -1,12 +1,22 @@
 import { create } from 'zustand';
 import axiosInstance from '../lib/axios';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/store/useAuthStore';
 
 const useNotificationStore = create((set) => ({
   notifications: [],
   isLoading: false,
   
   fetchUnreadNotifications: async () => {
+    // Get the current auth state from useAuthStore
+    const authUser = useAuthStore.getState().authUser;
+    
+    // Only proceed if user is authenticated
+    if (!authUser) {
+      console.log('User not authenticated, skipping notification fetch');
+      return;
+    }
+    
     set({ isLoading: true });
     try {
       // Add error handling and logging
@@ -23,6 +33,10 @@ const useNotificationStore = create((set) => ({
   
   // Mark notifications as read
   markAsRead: async (notificationIds) => {
+    // Check if user is authenticated
+    const authUser = useAuthStore.getState().authUser;
+    if (!authUser) return;
+    
     try {
       await axiosInstance.post('/notification/mark-read', { notificationIds });
       set(state => ({
@@ -40,6 +54,10 @@ const useNotificationStore = create((set) => ({
   
   // Mark notifications as delivered
   markAsDelivered: async (notificationIds) => {
+    // Check if user is authenticated
+    const authUser = useAuthStore.getState().authUser;
+    if (!authUser) return;
+    
     try {
       await axiosInstance.post('/notification/mark-delivered', { notificationIds });
       set(state => ({
@@ -56,6 +74,10 @@ const useNotificationStore = create((set) => ({
   
   // Delete notifications
   deleteNotifications: async (notificationIds) => {
+    // Check if user is authenticated
+    const authUser = useAuthStore.getState().authUser;
+    if (!authUser) return;
+    
     try {
       await axiosInstance.post('/notification/delete', { notificationIds });
       set(state => ({
@@ -72,6 +94,10 @@ const useNotificationStore = create((set) => ({
   
   // Add a new notification (from socket)
   addNotification: (notification) => {
+    // Check if user is authenticated
+    const authUser = useAuthStore.getState().authUser;
+    if (!authUser) return;
+    
     // Normalize notification data structure
     const normalizedNotification = {
       _id: notification._id || `temp-${Date.now()}`,
