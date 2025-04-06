@@ -16,7 +16,6 @@ Messagerouter.delete("/:messageId", protectRoute, DeleteMessage);
 // notification routes
 Messagerouter.get("/unseen/:senderId", protectRoute, UnseenMessage);
 Messagerouter.put("/markAsRead/:senderId", protectRoute, markMessagesAsRead);
-// Add this new route
 Messagerouter.post("/mark-seen", protectRoute, markMessagesAsRead);
 
 export default Messagerouter;

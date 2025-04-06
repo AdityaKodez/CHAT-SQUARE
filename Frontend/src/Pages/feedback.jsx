@@ -143,7 +143,7 @@ export default function FeedbackWidget() {
               className="bg-base-100 w-full max-w-md rounded-xl shadow-xl overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Header - Using same style as your chat header */}
+            
               <div className="px-7 py-5 border-b border-base-300 bg-base-100 relative flex justify-center items-center">
                 <button
                   onClick={() => setIsOpen(false)}
@@ -165,7 +165,7 @@ export default function FeedbackWidget() {
                       onChange={handleChange}
                       disabled
                       placeholder="Enter your name"
-                      className="w-full px-4 py-2 text-sm text-secondary-content bg-base-200 rounded-sm border-none"
+                      className="w-full px-4 py-2 text-sm text-primary bg-base-200 rounded-sm border-none"
                     />
                   </div>
 
@@ -178,7 +178,7 @@ export default function FeedbackWidget() {
                       value={authUser.email||formData.email}
                       onChange={handleChange}
                       placeholder="your@email.com"
-                      className="w-full px-4 py-2 text-sm bg-base-200 rounded-sm text-secondary-content border-none focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full px-4 py-2 text-sm bg-base-200 rounded-sm text-primary border-none focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                   </div>
 
@@ -210,7 +210,7 @@ export default function FeedbackWidget() {
                       value={formData.feedback}
                       onChange={handleChange}
                       placeholder="Type your feedback here..."
-                      className="w-full resize-none rounded-sm text-secondary-content px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full resize-none rounded-sm text-primary px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
                       rows="3"
                     />
                   </div>
