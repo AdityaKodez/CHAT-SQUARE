@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axiosInstance from '../lib/axios';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '@/store/useAuthStore';
-
+import ChatStore from './useChatStore';
 const useNotificationStore = create((set) => ({
   notifications: [],
   isLoading: false,
@@ -19,7 +19,7 @@ const useNotificationStore = create((set) => ({
     
     set({ isLoading: true });
     try {
-      // Add error handling and logging
+      // Check if socket is available and emit event to fetch notifications
       const response = await axiosInstance.get('/notification/unread');
       console.log('Notification response:', response.data);
       set({ notifications: response.data });

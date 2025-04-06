@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ChatStore from "../store/useChatStore.js";
 import { useAuthStore } from "../store/useAuthStore.js"; // Fixed alias import
 import { Send, Trash2, Loader2, Info, X, BadgeCheck } from "lucide-react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence,motion } from "framer-motion";
 import ReactLinkify from "react-linkify";
 
 const UserStatus = ({ userId }) => {
