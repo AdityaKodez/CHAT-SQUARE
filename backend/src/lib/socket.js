@@ -196,7 +196,23 @@ io.on("connection", (socket) => {
       socket.broadcast.emit("global_typing", { userId: senderId, isTyping, fullName });
     }
   });
-  
+  socket.on("markAsRead", ({ messageId, senderId }) => {
+    const recipientSocket = userSockets.get(senderId);
+    if (recipientSocket) {
+      socket.to(recipientSocket).emit("markAsRead", { messageId });
+      console.log(`Message ${messageId} marked as read for sender ${senderId}`);
+    }
+  });
+  socket.on("markAsRead", ({ senderId }) => {
+    const recipientSocket = userSockets.get(senderId);
+    if (recipientSocket) {
+      socket.to(recipientSocket).emit("messages_read", {
+        readBy: [...userSockets.entries()]
+          .find(([_, socketId]) => socketId === socket.id)?.[0],
+        conversationId: senderId
+      });
+    }
+  });
   // Handle notification acknowledgment
   socket.on("notification_received", async ({ notificationId, received }) => {
     if (received && notificationId) {

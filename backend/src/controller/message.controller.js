@@ -342,22 +342,18 @@ export const UnseenMessage = async (req, res) => {
     }
 }
 export const markMessagesAsRead = async (req, res) => {
-    try {
-      const { senderId } = req.params;
-      const userId = req.user._id;
-  
-      await Message.updateMany(
-        {
-          sender: senderId,
-          receiver: userId,
-          isRead: false
-        },
-        { isRead: true }
-      );
-  
-      res.status(200).json({ message: "Messages marked as read" });
-    } catch (error) {
-      console.error("Error marking messages as read:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  };
+  try {
+    const { senderId } = req.body;
+    const userId = req.user._id;
+
+    await Message.updateMany(
+      { sender: senderId, receiver: userId, isRead: false },
+      { $set: { isRead: true } }
+    );
+
+    res.status(200).json({ message: "Messages marked as read" });
+  } catch (error) {
+    console.error("Error marking messages as read:", error);
+    res.status(500).json({ message: "Error marking messages as read" });
+  }
+};

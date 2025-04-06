@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ChatStore from '../store/useChatStore.js';
-import { useAuthStore } from '@/store/useAuthStore';
+import { useAuthStore } from '../store/useAuthStore.js'; // Fixed alias import
 import { Send, Trash2, Loader2, Info, X, BadgeCheck } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion'; // Fixed import
+import { AnimatePresence } from 'framer-motion';
 import ReactLinkify from "react-linkify";
-
 const UserStatus = ({ userId }) => {
-  const { users, formatLastOnline, onlineUsers } = ChatStore();
+  const { users, formatLastOnline, onlineUsers} = ChatStore();
   const user = users.find(u => u._id === userId);
   
   if (!user) return null;
@@ -18,7 +17,7 @@ const UserStatus = ({ userId }) => {
         : user.lastOnline 
           ? `${formatLastOnline(user.lastOnline)}`
           : "Never online"
-      }
+      } 
     </p>
   );
 };
@@ -31,8 +30,10 @@ const Colors = [
 const ChatContainer = () => {
   const { 
     SelectedUser, conversations, onlineUsers, sendMessage, isMessageLoading,
-    getMessages, handleNewMessage, DeleteMessage, typingUsers, sendTypingStatus
+    getMessages, handleNewMessage, DeleteMessage, typingUsers, sendTypingStatus,
+    markMessagesAsSeen  // This should be markMessagesAsSeen
   } = ChatStore();
+  const[seen, setSeen] = useState(false);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
@@ -102,10 +103,14 @@ const ChatContainer = () => {
     if (!container) return;
     const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     setIsScrolledToBottom(isAtBottom);
+    if (isAtBottom && document.visibilityState === 'visible' && SelectedUser) {
+      setSeen(true);
+      markMessagesAsSeen(SelectedUser._id);
+    }
     if (container.scrollTop < 20 && hasMore && !isLoadingMoreMessages) {
       loadMoreMessages();
     }
-  }, [hasMore, isLoadingMoreMessages, loadMoreMessages]);
+  }, [hasMore, isLoadingMoreMessages, loadMoreMessages, SelectedUser, markMessagesAsSeen]);
   
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -193,6 +198,38 @@ const ChatContainer = () => {
     }
   }, [messages, scrollToBottom, isScrolledToBottom, isLoadingMoreMessages]);
 
+  useEffect(() => {
+    if (SelectedUser && messages.length > 0) {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+
+      // Check last message and visibility
+      const lastMessage = messages[messages.length - 1];
+      const isVisible = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      const isActiveChat = document.visibilityState === 'visible';
+      const isOtherUserMessage = lastMessage.sender === SelectedUser._id;
+      
+      if (isVisible && isActiveChat && isOtherUserMessage) {
+        markMessagesAsSeen(SelectedUser._id);
+      }
+    }
+  }, [SelectedUser, messages, markMessagesAsSeen]);
+
+  // Add visibility change handler
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && 
+          SelectedUser && 
+          messages.length > 0 && 
+          isScrolledToBottom) {
+        markMessagesAsSeen(SelectedUser._id);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [SelectedUser, messages, isScrolledToBottom, markMessagesAsSeen]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const content = e.target.message.value;
@@ -209,8 +246,8 @@ const ChatContainer = () => {
       console.error("Error sending message:", error);
     }
   };
-
   if (!SelectedUser) return null;
+
 
   return (
     <div className="w-full h-full bg-base-100 font-work-sans flex flex-col">
@@ -288,6 +325,11 @@ const ChatContainer = () => {
                     <p className={`text-[10px] mt-1.5 ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}`}>
                       {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
+                    {seen && isMyMessage && (
+                      <p className={`text-[10px] mt-1.5 ${isMyMessage ? "text-primary-content/50" : "text-base-content/70"}`}>
+                        {message.isRead ? "Seen" : "Delivered"}
+                      </p>
+                    )}
                     {isMyMessage && (
                       <button
                         onClick={() => DeleteMessage(message._id, SelectedUser._id)}
@@ -406,5 +448,4 @@ const ChatContainer = () => {
     </div>
   );
 };
-
 export default ChatContainer;

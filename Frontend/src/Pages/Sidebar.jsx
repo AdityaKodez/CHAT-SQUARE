@@ -45,7 +45,6 @@ const Sidebar = () => {
     unreadCounts,
     initializeSocketListeners,
     globalChatSelected,
-    fetchUnseenMessages,
     setGlobalChatSelected
   } = ChatStore();
   

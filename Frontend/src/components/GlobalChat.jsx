@@ -228,7 +228,6 @@ const GlobalChat = () => {
 
   useEffect(() => {
     // Only scroll to bottom when messages change if we're at the bottom already
-    // or if we're not loading more messages (pagination)
     if (isScrolledToBottom && !isLoadingMoreMessages) {
       scrollToBottom();
     }
@@ -243,12 +242,7 @@ const GlobalChat = () => {
     try {
       // Reset form immediately to prevent double submission
       e.target.reset();
-      
-      // Send message through socket
       await sendGlobalMessage({ content });
-      
-      // Don't update UI here - let the socket event handle it
-      // This prevents duplicate messages on sender side
       
       // Still scroll to bottom
       setIsScrolledToBottom(true);

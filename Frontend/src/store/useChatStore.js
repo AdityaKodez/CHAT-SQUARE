@@ -13,6 +13,7 @@ const ChatStore = create((set, get) => ({
   messages: [],
   messageCount:null,
   users: [],
+  conversations: {},
   Notifications: [],
   IsTyping: false,
   onlineUsers: [], // Add this to track online users
@@ -165,6 +166,19 @@ const ChatStore = create((set, get) => ({
         Notifications: [...state.Notifications, notification]
       }));
     });
+
+    // Add this new listener for messages being read
+    socket.on("messages_read", ({ readBy }) => {
+      set((state) => ({
+        conversations: {
+          ...state.conversations,
+          [readBy]: (state.conversations[readBy] || []).map(msg => ({
+            ...msg,
+            isRead: true
+          }))
+        }
+      }));
+    });
   },
   // Add this method to format last online time
   formatLastOnline: (lastOnlineDate) => {
@@ -241,12 +255,8 @@ const ChatStore = create((set, get) => ({
       set({ isUserLoading: false });
     }
   },
-
-  // Update getMessages method
-  // In your initial state
-  conversations: {}, // Store messages per conversation
   
-  // In your getMessages method
+  //  getMessages method
   getMessages: async function({ userId, page = 1, limit = 20 }) {
     const isInitialLoad = page === 1;
     
@@ -326,6 +336,7 @@ unreadCounts: {}, // Store unread message counts per user
 
 // Add a method to reset unread count when selecting a user
 setSelectedUser: function(selectedUser) {
+  const socket = useAuthStore.getState().socket;
   set((state) => {
     if (selectedUser && selectedUser._id) {
       return {
@@ -344,9 +355,30 @@ setSelectedUser: function(selectedUser) {
   });
 
   // Mark messages as read in backend
-  if (selectedUser) {
-    axiosInstance.put(`/message/markAsRead/${selectedUser._id}`);
+  if (selectedUser)  {
+try {
+  axiosInstance.put(`/message/markAsRead/${selectedUser._id}`);
+  // Mark messages as read in backend using socket.io
+  if (socket) {
+    socket.emit("mark_messages_as_read", selectedUser._id);
   }
+  
+  console.log("Marked messages as read for user:", selectedUser._id);
+  set((state) => ({
+    unreadCounts: {
+      ...state.unreadCounts,
+      [selectedUser._id]: 0
+    }
+  }));
+  console.log("Messages marked as read");
+} catch (error) {
+  console.error("Error marking messages as read:", error);
+  toast.error("Error marking messages as read");
+}
+    
+
+  }
+
 },
 
 // Method to select global chat
@@ -620,7 +652,51 @@ deleteGlobalMessage: async function(messageId) {
        from: useAuthStore.getState().authUser?._id
      });
    }
- }
+ },
+
+  markMessagesAsSeen: async function(senderId) {
+    try {
+      // Only mark messages if they're from the other user
+      const messages = get().conversations[senderId] || [];
+      const unreadMessages = messages.filter(
+        msg => !msg.isRead && msg.sender === senderId
+      );
+
+      if (unreadMessages.length === 0) return;
+
+      // First update local state immediately
+      set(state => ({
+        conversations: {
+          ...state.conversations,
+          [senderId]: state.conversations[senderId].map(msg => ({
+            ...msg,
+            isRead: msg.sender === senderId ? true : msg.isRead
+          }))
+        }
+      }));
+
+      // Then notify the backend
+      await axiosInstance.post('/message/mark-seen', { senderId });
+      
+      // And notify through socket
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("markAsRead", { senderId });
+      }
+    } catch (error) {
+      console.error("Error marking messages as seen:", error);
+      // Rollback the state if the request failed
+      set(state => ({
+        conversations: {
+          ...state.conversations,
+          [senderId]: state.conversations[senderId].map(msg => ({
+            ...msg,
+            isRead: false
+          }))
+        }
+      }));
+    }
+  }
 }));
 
 export default ChatStore;
