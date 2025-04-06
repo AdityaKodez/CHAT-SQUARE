@@ -3,6 +3,7 @@ import ChatStore from "../store/useChatStore.js";
 import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
 import { BadgeCheck, Plus, User, Users, Globe } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
+import FeedbackWidget from "./feedback.jsx";
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
@@ -142,7 +143,7 @@ const Sidebar = () => {
       </div>
 
       {/* Users List Section */}
-      <div className="overflow-y-auto w-full py-3">
+      <div className="overflow-y-auto flex-1 w-full py-3">
         {/* Global Chat Entry - Always at the top */}
         <button
           onClick={() => setGlobalChatSelected()}
@@ -266,6 +267,9 @@ const Sidebar = () => {
           </div>
         )}
       </div>
+
+      {/* Feedback component fixed at bottom */}
+      <FeedbackWidget />
     </aside>
   );
 };

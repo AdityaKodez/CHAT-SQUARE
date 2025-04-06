@@ -31,7 +31,7 @@ const ChatContainer = () => {
   const { 
     SelectedUser, conversations, onlineUsers, sendMessage, isMessageLoading,
     getMessages, handleNewMessage, DeleteMessage, typingUsers, sendTypingStatus,
-    markMessagesAsSeen  // This should be markMessagesAsSeen
+    markMessagesAsSeen ,formatLastOnline
   } = ChatStore();
   const[seen, setSeen] = useState(false);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
@@ -45,6 +45,7 @@ const ChatContainer = () => {
   const { socket, authUser } = useAuthStore();
   const messageEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const textareaRef = useRef(null);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -237,6 +238,10 @@ const ChatContainer = () => {
     try {
       await sendMessage({ userId: SelectedUser._id, content });
       e.target.reset();
+      // Reset textarea height to initial size
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '42px';
+      }
       if (socket) {
         socket.emit("typing", { to: SelectedUser._id, isTyping: false });
       }
@@ -369,15 +374,20 @@ const ChatContainer = () => {
       {/* Message Input */}
       <form className="p-3 border-t border-base-300 bg-base-100" onSubmit={handleSubmit}>
         <div className="flex items-center gap-2">
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
             name="message"
             placeholder="Type a message..."
-            className="input input-bordered flex-1 text-sm"
+            className="w-full resize-none rounded-sm px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
+            rows="1"
+            onInput={(e) => {
+              e.target.style.height = '42px';
+              e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+            }}
             onChange={handleInputChange}
             autoComplete="off"
           />
-          <button type="submit" className="btn btn-primary btn-sm">
+          <button type="submit" className="btn btn-primary btn-circle">
             <Send size={18} />
           </button>
         </div>

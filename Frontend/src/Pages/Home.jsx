@@ -11,7 +11,6 @@ const Home = () => {
   const {
     SelectedUser,
     globalChatSelected,
-    getMessages,
     getGlobalMessages,
     initializeSocketListeners,
   } = ChatStore();

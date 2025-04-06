@@ -153,7 +153,7 @@ const NotificationCenter = () => {
       </style>
       
       <button 
-        className={`btn btn-ghost btn-circle relative ${isShaking ? 'shake-animation' : ''}`}
+        className={`btn btn-danger btn-circle relative ${isShaking ? 'shake-animation' : ''}`}
         onClick={handleBellClick}
       >
         <Bell size="1rem" />

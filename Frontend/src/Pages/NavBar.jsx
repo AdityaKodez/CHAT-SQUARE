@@ -25,25 +25,9 @@ const NavBar = () => {
         <h3 className="text-[0.8rem]">Chat Square</h3>
       </div>
       <div className="settings flex items-center gap-3 pr-3">
-        {authUser && (
-          <>
-           
-       
-            
-            {location.pathname !== "/profile" && (
-              <Link to={"/profile"}>
-                <button className="btn btn-sm btn-soft btn-info">
-                  <User2Icon size="1rem" />
-                  Profile
-                </button>
-              </Link>
-            )}
-          </>
-        )}
-        
         {/* Settings button available to everyone */}
         <Link to={"/settings"}>
-          <button className="btn btn-ghost btn-circle relative">
+          <button className="btn btn-danger btn-circle relative">
             <Settings 
               size="1rem" 
               className={`cursor-pointer transition-transform duration-500 ${
@@ -53,7 +37,27 @@ const NavBar = () => {
             />
           </button>
         </Link>
-        <NotificationCenter size="1rem" />
+     {/* Notification button */}
+
+{
+  authUser && (
+    <>
+      <NotificationCenter size="1rem" />
+    </>
+  )
+}
+        {/* Profile button */}
+        {authUser && (
+          <>
+              <Link to={"/profile"}>
+                <button className="btn btn-danger btn-circle">
+                  <User2Icon size="1rem"
+                  className="cursor-pointer transition-transform duration-500" />
+                </button>
+              </Link>
+            
+          </>
+        )}
       </div>
     </div>
   );
