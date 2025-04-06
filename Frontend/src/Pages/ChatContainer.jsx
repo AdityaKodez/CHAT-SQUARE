@@ -1,47 +1,63 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import ChatStore from '../store/useChatStore.js';
-import { useAuthStore } from '../store/useAuthStore.js'; // Fixed alias import
-import { Send, Trash2, Loader2, Info, X, BadgeCheck } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import ChatStore from "../store/useChatStore.js";
+import { useAuthStore } from "../store/useAuthStore.js"; // Fixed alias import
+import { Send, Trash2, Loader2, Info, X, BadgeCheck } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import ReactLinkify from "react-linkify";
+
 const UserStatus = ({ userId }) => {
-  const { users, formatLastOnline, onlineUsers} = ChatStore();
-  const user = users.find(u => u._id === userId);
-  
+  const { users, formatLastOnline, onlineUsers } = ChatStore();
+  const user = users.find((u) => u._id === userId);
+
   if (!user) return null;
 
   return (
-    <p className='text-primary text-xs w-full'>
-      {onlineUsers.includes(userId) 
+    <p className="text-primary text-xs w-full">
+      {onlineUsers.includes(userId)
         ? "Online now"
-        : user.lastOnline 
-          ? `${formatLastOnline(user.lastOnline)}`
-          : "Never online"
-      } 
+        : user.lastOnline
+        ? `${formatLastOnline(user.lastOnline)}`
+        : "Never online"}
     </p>
   );
 };
 
 const Colors = [
-  "bg-blue-500", "bg-green-500", "bg-purple-500", "bg-red-500",
-  "bg-yellow-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500",
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-red-500",
+  "bg-yellow-500",
+  "bg-pink-500",
+  "bg-indigo-500",
+  "bg-teal-500",
 ];
 
 const ChatContainer = () => {
-  const { 
-    SelectedUser, conversations, onlineUsers, sendMessage, isMessageLoading,
-    getMessages, handleNewMessage, DeleteMessage, typingUsers, sendTypingStatus,
-    markMessagesAsSeen ,formatLastOnline
+  const {
+    SelectedUser,
+    conversations,
+    onlineUsers,
+    sendMessage,
+    isMessageLoading,
+    getMessages,
+    handleNewMessage,
+    DeleteMessage,
+    typingUsers,
+    sendTypingStatus,
+    markMessagesAsSeen,
   } = ChatStore();
-  const[seen, setSeen] = useState(false);
+  const [seen, setSeen] = useState(false);
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
-  
+
   const messages = useMemo(() => {
-    return SelectedUser && SelectedUser._id ? (conversations[SelectedUser._id] || []) : [];
+    return SelectedUser && SelectedUser._id
+      ? conversations[SelectedUser._id] || []
+      : [];
   }, [SelectedUser, conversations]);
-  
+
   const { socket, authUser } = useAuthStore();
   const messageEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -51,7 +67,7 @@ const ChatContainer = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  
+
   const scrollToBottom = useCallback((behavior = "smooth") => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior });
@@ -75,12 +91,15 @@ const ChatContainer = () => {
     if (!container) return;
     const prevScrollHeight = container.scrollHeight;
     const prevScrollTop = container.scrollTop;
-    
+
     try {
       setIsLoadingMoreMessages(true);
       const nextPage = currentPage + 1;
-      const pagination = await getMessages({ userId: SelectedUser._id, page: nextPage });
-      
+      const pagination = await getMessages({
+        userId: SelectedUser._id,
+        page: nextPage,
+      });
+
       if (pagination) {
         setCurrentPage(nextPage);
         setHasMore(pagination.hasMore);
@@ -98,13 +117,14 @@ const ChatContainer = () => {
       setIsLoadingMoreMessages(false);
     }
   }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages]);
-  
+
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
-    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    const isAtBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     setIsScrolledToBottom(isAtBottom);
-    if (isAtBottom && document.visibilityState === 'visible' && SelectedUser) {
+    if (isAtBottom && document.visibilityState === "visible" && SelectedUser) {
       setSeen(true);
       markMessagesAsSeen(SelectedUser._id);
     }
@@ -112,22 +132,22 @@ const ChatContainer = () => {
       loadMoreMessages();
     }
   }, [hasMore, isLoadingMoreMessages, loadMoreMessages, SelectedUser, markMessagesAsSeen]);
-  
+
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
     }
   }, [handleScroll]);
-  
+
   useEffect(() => {
     if (!isMessageLoading && messages.length > 0) {
       scrollToBottom("auto");
       setIsScrolledToBottom(true);
     }
   }, [isMessageLoading, messages.length, scrollToBottom]);
-  
+
   useEffect(() => {
     setCurrentPage(1);
     setHasMore(true);
@@ -135,10 +155,10 @@ const ChatContainer = () => {
       getMessages({ userId: SelectedUser._id, page: 1 });
     }
   }, [SelectedUser?._id, getMessages]);
-  
+
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef(null);
-  
+
   const handleInputChange = () => {
     if (!isTyping && SelectedUser) {
       setIsTyping(true);
@@ -204,43 +224,49 @@ const ChatContainer = () => {
       const container = messagesContainerRef.current;
       if (!container) return;
 
-      // Check last message and visibility
       const lastMessage = messages[messages.length - 1];
-      const isVisible = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-      const isActiveChat = document.visibilityState === 'visible';
+      const isVisible =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      const isActiveChat = document.visibilityState === "visible";
       const isOtherUserMessage = lastMessage.sender === SelectedUser._id;
-      
+
       if (isVisible && isActiveChat && isOtherUserMessage) {
         markMessagesAsSeen(SelectedUser._id);
       }
     }
   }, [SelectedUser, messages, markMessagesAsSeen]);
 
-  // Add visibility change handler
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && 
-          SelectedUser && 
-          messages.length > 0 && 
-          isScrolledToBottom) {
+      if (
+        document.visibilityState === "visible" &&
+        SelectedUser &&
+        messages.length > 0 &&
+        isScrolledToBottom
+      ) {
         markMessagesAsSeen(SelectedUser._id);
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [SelectedUser, messages, isScrolledToBottom, markMessagesAsSeen]);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const content = e.target.message.value;
-    if (!content.trim()) return;
+    if (e && typeof e.preventDefault === "function") {
+      e.preventDefault();
+    }
+    const content = e?.target?.message?.value || e?.target?.message;
+    if (!content || content.trim().length === 0) return; // Only check if empty, don't trim content itself
+
     try {
-      await sendMessage({ userId: SelectedUser._id, content });
-      e.target.reset();
-      // Reset textarea height to initial size
+      await sendMessage({ userId: SelectedUser._id, content }); // Send original content with line breaks
+      if (e?.target) {
+        e.target.message.value = "";
+      }
       if (textareaRef.current) {
-        textareaRef.current.style.height = '42px';
+        textareaRef.current.style.height = "42px";
       }
       if (socket) {
         socket.emit("typing", { to: SelectedUser._id, isTyping: false });
@@ -251,8 +277,8 @@ const ChatContainer = () => {
       console.error("Error sending message:", error);
     }
   };
-  if (!SelectedUser) return null;
 
+  if (!SelectedUser) return null;
 
   return (
     <div className="w-full h-full bg-base-100 font-work-sans flex flex-col">
@@ -260,22 +286,40 @@ const ChatContainer = () => {
       <div className="px-4 py-3 border-b border-base-300 bg-base-100 w-full">
         <div className="flex items-center gap-3">
           {SelectedUser.profilePic ? (
-            <button onClick={() => setShowProfileModal(true)} className="cursor-pointer hover:opacity-80 transition-opacity">
-              <img src={SelectedUser.profilePic} alt={userFullName} className="w-10 h-10 rounded-lg object-cover" />
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="cursor-pointer hover:opacity-80 transition-opacity"
+            >
+              <img
+                src={SelectedUser.profilePic}
+                alt={userFullName}
+                className="w-10 h-10 rounded-lg object-cover"
+              />
             </button>
           ) : (
-            <button onClick={() => setShowProfileModal(true)} className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(SelectedUser._id)}`}>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(
+                SelectedUser._id
+              )}`}
+            >
               {userFirstInitial}
             </button>
           )}
-          <div className='flex-1 flex flex-col'>
-            <div className='flex justify-between items-center w-full'>
+          <div className="flex-1 flex flex-col">
+            <div className="flex justify-between items-center w-full">
               <div className="flex items-center gap-1">
                 <h3 className="font-medium text-sm">{userFullName}</h3>
-                {SelectedUser.isVerified && <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                {SelectedUser.isVerified && (
+                  <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                )}
               </div>
               <div className="ml-auto flex items-center gap-3">
-                <button onClick={() => setShowProfileModal(true)} className="text-primary hover:text-primary-focus transition-colors" title="View profile">
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="text-primary hover:text-primary-focus transition-colors"
+                  title="View profile"
+                >
                   <Info size={16} />
                 </button>
                 {onlineUsers.includes(SelectedUser._id) ? (
@@ -290,7 +334,10 @@ const ChatContainer = () => {
       </div>
 
       {/* Messages Container */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+      >
         {isLoadingMoreMessages && (
           <div className="flex justify-center py-2">
             <Loader2 className="animate-spin h-6 w-6 text-primary" />
@@ -304,14 +351,21 @@ const ChatContainer = () => {
           <>
             {messages.length === 0 && !isMessageLoading && (
               <div className="flex h-full w-full justify-center items-center text-base-content">
-                <p className='font-work-sans'>Start Your Chat Now!!</p>
+                <p className="font-work-sans">Start Your Chat Now!!</p>
               </div>
             )}
             {messages.map((message) => {
               const isMyMessage = message.sender === authUser._id;
               return (
-                <div key={`${message._id}-${message.createdAt}`} className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}>
-                  <div className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"}`}>
+                <div
+                  key={`${message._id}-${message.createdAt}`}
+                  className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${
+                      isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"
+                    }`}
+                  >
                     <ReactLinkify
                       componentDecorator={(href, text, key) => (
                         <a
@@ -319,25 +373,46 @@ const ChatContainer = () => {
                           key={key}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={isMyMessage ? "text-white underline hover:text-primary-content/80" : "text-blue-500 underline hover:text-blue-600"}
+                          className={
+                            isMyMessage
+                              ? "text-white underline hover:text-primary-content/80"
+                              : "text-blue-500 underline hover:text-blue-600"
+                          }
                         >
                           {text}
                         </a>
                       )}
                     >
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     </ReactLinkify>
-                    <p className={`text-[10px] mt-1.5 ${isMyMessage ? "text-primary-content/70" : "text-base-content/70"}`}>
-                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <p
+                      className={`text-[10px] mt-1.5 ${
+                        isMyMessage
+                          ? "text-primary-content/70"
+                          : "text-base-content/70"
+                      }`}
+                    >
+                      {new Date(message.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                     {seen && isMyMessage && (
-                      <p className={`text-[10px] mt-1.5 ${isMyMessage ? "text-primary-content/50" : "text-base-content/70"}`}>
+                      <p
+                        className={`text-[10px] mt-1.5 ${
+                          isMyMessage
+                            ? "text-primary-content/50"
+                            : "text-base-content/70"
+                        }`}
+                      >
                         {message.isRead ? "Seen" : "Delivered"}
                       </p>
                     )}
                     {isMyMessage && (
                       <button
-                        onClick={() => DeleteMessage(message._id, SelectedUser._id)}
+                        onClick={() =>
+                          DeleteMessage(message._id, SelectedUser._id)
+                        }
                         className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity touch-action-manipulation"
                         aria-label="Delete message"
                       >
@@ -353,8 +428,14 @@ const ChatContainer = () => {
                 <div className="bg-base-200 rounded-xl p-3 max-w-[80%]">
                   <div className="flex space-x-1">
                     <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"></div>
-                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                    <div className="w-2 h-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                    <div
+                      className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 rounded-full bg-gray-400 animate-bounce"
+                      style={{ animationDelay: "0.4s" }}
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -380,9 +461,20 @@ const ChatContainer = () => {
             placeholder="Type a message..."
             className="w-full resize-none rounded-sm px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
             rows="1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const content = e.target.value;
+                if (content && content.trim().length > 0) {
+                  handleSubmit({ target: { message: content } });
+                  e.target.value = "";
+                  e.target.style.height = "42px";
+                }
+              }
+            }}
             onInput={(e) => {
-              e.target.style.height = '42px';
-              e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+              e.target.style.height = "42px";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}
             onChange={handleInputChange}
             autoComplete="off"
@@ -412,28 +504,44 @@ const ChatContainer = () => {
               className="bg-base-100 rounded-xl shadow-xl max-w-md w-full p-6 relative"
               onClick={(e) => e.stopPropagation()}
             >
-              <button onClick={() => setShowProfileModal(false)} className="absolute top-4 right-4 text-base-content/70 hover:text-base-content">
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="absolute top-4 right-4 text-base-content/70 hover:text-base-content"
+              >
                 <X size={20} />
               </button>
               <div className="flex flex-col items-center text-center">
                 {SelectedUser.profilePic ? (
-                  <img src={SelectedUser.profilePic} alt={SelectedUser.fullName} className="w-24 h-24 rounded-full object-cover border-4 border-primary/20" />
+                  <img
+                    src={SelectedUser.profilePic}
+                    alt={SelectedUser.fullName}
+                    className="w-24 h-24 rounded-full object-cover border-4 border-primary/20"
+                  />
                 ) : (
-                  <div className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(SelectedUser._id)}`}>
+                  <div
+                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(
+                      SelectedUser._id
+                    )}`}
+                  >
                     <div>
                       <h1>{SelectedUser.fullName?.charAt(0).toUpperCase()}</h1>
-                      {SelectedUser.isVerified && <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                      {SelectedUser.isVerified && (
+                        <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                      )}
                     </div>
                   </div>
                 )}
                 <div className="flex items-center gap-1 mb-1">
                   <h3 className="text-xl font-bold">{SelectedUser.fullName}</h3>
-                  {SelectedUser.isVerified && <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />}
+                  {SelectedUser.isVerified && (
+                    <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                  )}
                 </div>
                 <div className="mb-4">
                   {onlineUsers.includes(SelectedUser._id) ? (
                     <span className="text-sm text-success flex items-center justify-center gap-1">
-                      <span className="w-2 h-2 bg-success rounded-full"></span> Online now
+                      <span className="w-2 h-2 bg-success rounded-full"></span>{" "}
+                      Online now
                     </span>
                   ) : (
                     <UserStatus userId={SelectedUser._id} />
@@ -441,13 +549,16 @@ const ChatContainer = () => {
                 </div>
                 {SelectedUser.description && (
                   <div className="mb-6 max-w-xs">
-                    <h4 className="text-sm font-medium mb-2 text-base-content/70">About</h4>
+                    <h4 className="text-sm font-medium mb-2 text-base-content/70">
+                      About
+                    </h4>
                     <p className="text-sm">{SelectedUser.description}</p>
                   </div>
                 )}
                 {SelectedUser.email && (
                   <div className="text-sm text-base-content/70">
-                    <span className="font-medium">Email: </span> {SelectedUser.email}
+                    <span className="font-medium">Email: </span>{" "}
+                    {SelectedUser.email}
                   </div>
                 )}
               </div>
@@ -458,4 +569,5 @@ const ChatContainer = () => {
     </div>
   );
 };
+
 export default ChatContainer;
