@@ -4,7 +4,7 @@ import express from "express";
 import User from "../models/user.model.js";
 import Notification from "../models/Notification.model.js";
 import { sendPushNotification } from "./pushNotification.js";
-
+import Message from "../models/message.model.js";
 const app = express();
 const server = http.createServer(app);
 
@@ -196,13 +196,40 @@ io.on("connection", (socket) => {
       socket.broadcast.emit("global_typing", { userId: senderId, isTyping, fullName });
     }
   });
-  socket.on("markAsRead", ({ messageId, senderId }) => {
+ 
+  socket.on("EditMessage", async ({ messageId, newContent, senderId }) => {
     const recipientSocket = userSockets.get(senderId);
     if (recipientSocket) {
-      socket.to(recipientSocket).emit("markAsRead", { messageId });
-      console.log(`Message ${messageId} marked as read for sender ${senderId}`);
+      await Message.findByIdAndUpdate(messageId, { content: newContent });
+      console.log(`Message ${messageId} updated to: ${newContent}`);
+      io.to(recipientSocket).emit("EditMessage", { messageId, newContent });
+      console.log(`Notified user ${senderId} about the edit`);
+    }
+});
+
+  socket.on("message_edited", async ({ messageId, newContent, to }) => {
+    try {
+      // Update message in database
+      await Message.findByIdAndUpdate(messageId, { 
+        content: newContent,
+        edited: true 
+      });
+  
+      // Get recipient's socket
+      const recipientSocket = userSockets.get(to);
+      
+      if (recipientSocket) {
+        // Emit to specific recipient
+        io.to(recipientSocket).emit("message_edited", { 
+          messageId,
+          newContent
+        });
+      }
+    } catch (error) {
+      console.error("Error handling message edit:", error);
     }
   });
+
   socket.on("markAsRead", ({ senderId }) => {
     const recipientSocket = userSockets.get(senderId);
     if (recipientSocket) {

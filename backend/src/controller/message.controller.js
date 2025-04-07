@@ -341,6 +341,7 @@ export const UnseenMessage = async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 }
+
 export const markMessagesAsRead = async (req, res) => {
   try {
     const { senderId } = req.body;
@@ -356,4 +357,56 @@ export const markMessagesAsRead = async (req, res) => {
     console.error("Error marking messages as read:", error);
     res.status(500).json({ message: "Error marking messages as read" });
   }
+};
+
+export const markMessagesAsSeen = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { senderId } = req.body; // expect senderId from frontend
+
+    // Update messages from senderId to current user that have not yet been seen
+    await Message.updateMany(
+      {
+        sender: senderId,
+        receiver: userId,
+        isRead: false,
+        isGlobal: { $ne: true } // Exclude global messages
+      },
+      { $set: { isRead: true } }
+    );
+
+    res.status(200).json({ message: "Messages marked as seen" });
+  } catch (error) {
+    console.error("Error marking messages as seen:", error);
+    res.status(500).json({ message: "Error marking messages as seen" });
+  }
+};
+
+export const EditMessage = async (req, res) => {
+    try {
+        const { messageId, newContent } = req.body;
+        const userId = req.user._id;
+
+        // Find the message
+        const message = await Message.findById(messageId);
+        
+        // Check if message exists
+        if (!message) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+        
+        // Check if the user is the sender of the message
+        if (message.sender.toString() !== userId.toString()) {
+            return res.status(403).json({ message: "You can only edit your own messages" });
+        }
+        // Update the message content
+        message.content = newContent;
+        await message.save();
+
+        // Get the io instance
+        res.status(200).json({ message: "Message updated successfully", updatedMessage: message });
+    } catch (error) {
+        console.error("Error in EditMessage controller:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
 };

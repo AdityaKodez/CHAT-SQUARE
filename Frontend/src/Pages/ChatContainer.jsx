@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ChatStore from "../store/useChatStore.js";
 import { useAuthStore } from "../store/useAuthStore.js"; // Fixed alias import
-import { Send, Trash2, Loader2, Info, X, BadgeCheck } from "lucide-react";
+import { Send, Trash2, Loader2, Info, X, BadgeCheck, Edit2 } from "lucide-react";
 import { AnimatePresence,motion } from "framer-motion";
 import ReactLinkify from "react-linkify";
 
 const UserStatus = ({ userId }) => {
   const { users, formatLastOnline, onlineUsers } = ChatStore();
   const user = users.find((u) => u._id === userId);
+const windowWidth = window.innerWidth;
+useEffect(() => {
+  console.log("Window width:", windowWidth);
+}, [windowWidth]);
 
   if (!user) return null;
 
@@ -43,7 +47,7 @@ const ChatContainer = () => {
     getMessages,
     handleNewMessage,
     DeleteMessage,
-    typingUsers,
+    EditMessages,
     sendTypingStatus,
     markMessagesAsSeen,
   } = ChatStore();
@@ -51,7 +55,52 @@ const ChatContainer = () => {
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const userFullName = SelectedUser?.fullName;
   const userFirstInitial = userFullName?.[0] || "?";
+const [editingMessageId, setEditingMessageId] = useState(null);
+const [editingContent, setEditingContent] = useState("");
+const editInputRef = useRef(null);
 
+
+
+const handleStartEdit = (message) => {
+  setEditingMessageId(message._id);
+  setEditingContent(message.content);
+  setTimeout(() => {
+    if (editInputRef.current) {
+      editInputRef.current.focus();
+    }
+  }, 50);
+};
+
+const handleCancelEdit = () => {
+  setEditingMessageId(null);
+  setEditingContent("");
+};
+
+const handleSaveEdit = async () => {
+  if (!editingContent.trim()) return;
+  try {
+     await EditMessages({ 
+      messageId: editingMessageId, 
+      content: editingContent, 
+      userId: SelectedUser._id 
+    });
+    
+    // If successful, emit socket event
+    if (socket) {
+      socket.emit("message_edited", {
+        messageId: editingMessageId,
+        newContent: editingContent,
+        to: SelectedUser._id
+      });
+    }
+    
+    setEditingMessageId(null);
+    setEditingContent("");
+  } catch (error) {
+    console.error("Error saving edit:", error);
+  }
+};
+  
   const messages = useMemo(() => {
     return SelectedUser && SelectedUser._id
       ? conversations[SelectedUser._id] || []
@@ -84,7 +133,7 @@ const ChatContainer = () => {
     const index = Math.abs(hash) % Colors.length;
     return Colors[index];
   }
-
+// loading messages as scrolling
   const loadMoreMessages = useCallback(async () => {
     if (!SelectedUser || isLoadingMoreMessages || !hasMore) return;
     const container = messagesContainerRef.current;
@@ -118,6 +167,7 @@ const ChatContainer = () => {
     }
   }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages]);
 
+  // Handling scroll events
   const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -202,14 +252,36 @@ const ChatContainer = () => {
     const handleMessageDeletion = ({ messageId, conversationId }) => {
       DeleteMessage(messageId, conversationId);
     };
-    socket.off("typing").off("private message").off("message_deleted");
+    const handleMessageEdit = ({ messageId, newContent }) => {
+      ChatStore.setState((state) => {
+        const updatedConversations = { ...state.conversations };
+        const currentConversation = updatedConversations[SelectedUser._id];
+        
+        if (currentConversation) {
+          updatedConversations[SelectedUser._id] = currentConversation.map(msg => 
+            msg._id === messageId ? { ...msg, content: newContent, edited: true } : msg
+          );
+          return { conversations: updatedConversations };
+        }
+        return state;
+      });
+    };
+
+    socket.off("typing")
+         .off("private message")
+         .off("message_deleted")
+         .off("message_edited");
+         
     socket.on("typing", handleTyping);
     socket.on("private message", handlePrivateMessage);
     socket.on("message_deleted", handleMessageDeletion);
+    socket.on("message_edited", handleMessageEdit);
+
     return () => {
       socket.off("typing", handleTyping);
       socket.off("private message", handlePrivateMessage);
       socket.off("message_deleted", handleMessageDeletion);
+      socket.off("message_edited", handleMessageEdit);
     };
   }, [socket, SelectedUser, handleNewMessage, DeleteMessage]);
 
@@ -252,6 +324,27 @@ const ChatContainer = () => {
     return () =>
       document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [SelectedUser, messages, isScrolledToBottom, markMessagesAsSeen]);
+
+// Reset seen state when switching to a different conversation
+useEffect(() => {
+  setSeen(false);
+}, [SelectedUser]);
+
+// When messages update, if chat is scrolled to the bottom and window is visible,
+// mark messages as seen and update the "seen" state.
+useEffect(() => {
+  if (SelectedUser && messages.length > 0) {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const isAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      if (isAtBottom && document.visibilityState === "visible") {
+         setSeen(true);
+         markMessagesAsSeen(SelectedUser._id);
+      }
+    }
+  }
+}, [messages, SelectedUser, markMessagesAsSeen]);
 
   const handleSubmit = async (e) => {
     if (e && typeof e.preventDefault === "function") {
@@ -366,25 +459,62 @@ const ChatContainer = () => {
                       isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"
                     }`}
                   >
-                    <ReactLinkify
-                      componentDecorator={(href, text, key) => (
-                        <a
-                          href={href}
-                          key={key}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={
-                            isMyMessage
-                              ? "text-white underline hover:text-primary-content/80"
-                              : "text-blue-500 underline hover:text-blue-600"
-                          }
-                        >
-                          {text}
-                        </a>
-                      )}
-                    >
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    </ReactLinkify>
+                    {editingMessageId === message._id ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <textarea
+                          ref={editInputRef}
+                          value={editingContent}
+                          onChange={(e) => setEditingContent(e.target.value)}
+                          className="w-full resize-none rounded-sm px-2 py-1 text-sm bg-primary-foreground/50 border-none focus:outline-none focus:ring-1 focus:ring-primary text-primary-content"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSaveEdit();
+                            } else if (e.key === "Escape") {
+                              handleCancelEdit();
+                            }
+                          }}
+                        />
+                        <div className="flex justify-end gap-2 mt-2">
+                          <button
+                            onClick={handleCancelEdit}
+                            className="text-[10px] opacity-70 hover:opacity-100"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleSaveEdit}
+                            className="text-[10px] font-medium opacity-70 hover:opacity-100"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <ReactLinkify
+                        componentDecorator={(href, text, key) => (
+                          <a
+                            href={href}
+                            key={key}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={
+                              isMyMessage
+                                ? "text-white underline hover:text-primary-content/80"
+                                : "text-blue-500 underline hover:text-blue-600"
+                            }
+                          >
+                            {text}
+                          </a>
+                        )}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      </ReactLinkify>
+                    )}
                     <p
                       className={`text-[10px] mt-1.5 ${
                         isMyMessage
@@ -396,6 +526,7 @@ const ChatContainer = () => {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
+                      {message.edited && " (edited)"}
                     </p>
                     {seen && isMyMessage && (
                       <p
@@ -409,20 +540,30 @@ const ChatContainer = () => {
                       </p>
                     )}
                     {isMyMessage && (
-                      <button
-                        onClick={() =>
-                          DeleteMessage(message._id, SelectedUser._id)
-                        }
-                        className="absolute -right-3 -top-3 bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity touch-action-manipulation"
-                        aria-label="Delete message"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="absolute -right-3 -top-3 flex gap-1">
+                        <motion.button
+                          onClick={() => handleStartEdit(message)}
+                          whileHover={{ scale: 1.1 }}
+                          className="bg-primary text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity"
+                          aria-label="Edit message"
+                        >
+                          <Edit2 size={14} />
+                        </motion.button>
+                        <motion.button
+                          onClick={() => DeleteMessage(message._id, SelectedUser._id)}
+                          whileHover={{ scale: 1.1 }}
+                          className="bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity"
+                          aria-label="Delete message"
+                        >
+                          <Trash2 size={14} />
+                        </motion.button>
+                      </div>
                     )}
                   </div>
                 </div>
               );
             })}
+            {/* Typing Indicator */}
             {isOtherUserTyping && (
               <div className="flex justify-start">
                 <div className="bg-base-200 rounded-xl p-3 max-w-[80%]">
@@ -444,14 +585,6 @@ const ChatContainer = () => {
           </>
         )}
       </div>
-
-      {/* Typing Indicator */}
-      {typingUsers[SelectedUser?._id] && (
-        <div className="text-sm text-gray-500 italic ml-4 mb-2">
-          {SelectedUser.fullName} is typing...
-        </div>
-      )}
-
       {/* Message Input */}
       <form className="p-3 border-t border-base-300 bg-base-100" onSubmit={handleSubmit}>
         <div className="flex items-center gap-2">
@@ -462,13 +595,20 @@ const ChatContainer = () => {
             className="w-full resize-none rounded-sm px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
             rows="1"
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                const content = e.target.value;
-                if (content && content.trim().length > 0) {
-                  handleSubmit({ target: { message: content } });
-                  e.target.value = "";
-                  e.target.style.height = "42px";
+              if (window.innerWidth >= 900) {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  const content = e.target.value;
+                  if (content && content.trim().length > 0) {
+                    handleSubmit({ target: { message: content } });
+                    e.target.value = "";
+                    e.target.style.height = "42px";
+                  }
+                }
+              } else {
+                // For mobile devices, if it's Enter key, don't prevent default
+                if (e.key === "Enter") {
+                  return; // This allows new line creation on mobile
                 }
               }
             }}

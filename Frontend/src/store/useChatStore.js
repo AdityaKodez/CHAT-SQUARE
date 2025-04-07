@@ -45,7 +45,13 @@ const ChatStore = create((set, get) => ({
     if (!socket) return;
     
     // Remove existing listeners first to prevent duplicates
-    socket.off("global_message").off("global_message_deleted").off("online-users").off("typing").off("private_message").off("new_notification");
+    socket.off("global_message")
+         .off("global_message_deleted")
+         .off("online-users")
+         .off("typing")
+         .off("private_message")
+         .off("new_notification")
+         .off("message_edited"); // Add this
     
     // Listen for global messages
     socket.on("global_message", (message) => {
@@ -178,6 +184,23 @@ const ChatStore = create((set, get) => ({
           }))
         }
       }));
+    });
+
+    // Add message edit listener
+    socket.on("message_edited", ({ messageId, newContent }) => {
+      set((state) => {
+        const newState = { ...state };
+        // Update message in all conversations where it exists
+        Object.keys(state.conversations).forEach(conversationId => {
+          const conversation = state.conversations[conversationId];
+          if (conversation) {
+            newState.conversations[conversationId] = conversation.map(msg =>
+              msg._id === messageId ? { ...msg, content: newContent, edited: true } : msg
+            );
+          }
+        });
+        return newState;
+      });
     });
   },
   // Add this method to format last online time
@@ -695,6 +718,43 @@ deleteGlobalMessage: async function(messageId) {
           }))
         }
       }));
+    }
+  },
+  EditMessages: async function({ messageId, content, userId }) {
+    try {
+      // Send edit request to server
+      const res = await axiosInstance.put("/message/edit", { 
+        messageId, 
+        newContent: content 
+      });
+  
+      // Update local state immediately
+      set((state) => {
+        const updatedConversations = { ...state.conversations };
+        if (updatedConversations[userId]) {
+          updatedConversations[userId] = updatedConversations[userId].map(msg => 
+            msg._id === messageId ? { ...msg, content, edited: true } : msg
+          );
+        }
+        return { conversations: updatedConversations };
+      });
+  
+      // Emit socket event
+      const socket = useAuthStore.getState().socket;
+      if (socket) {
+        socket.emit("message_edited", {
+          messageId,
+          newContent: content,
+          to: userId
+        });
+      }
+      
+      toast.success("Message edited successfully");
+      return res.data;
+    } catch (error) {
+      console.error("Error editing message:", error);
+      toast.error("Error editing message");
+      throw error;
     }
   }
 }));
