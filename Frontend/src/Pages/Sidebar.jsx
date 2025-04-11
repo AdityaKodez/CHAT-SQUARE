@@ -233,9 +233,15 @@ const Sidebar = () => {
                 <div className="flex justify-between items-center w-full mb-1">
                   <div className="flex items-center gap-1">
                   <p className="font-medium truncate mr-1">{user.fullName}</p>
-                  {user.isVerified && (
+                  {user.isVerified && user.fullName==="Faker" &&(
                     <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
                   )}
+                  {
+                    user.isVerified&&user.fullName!=="Faker" &&(
+                      <span className="text-xs text-amber-400 font-medium"><BadgeCheck className="w-4 h-4 text-blue-400 flex-shrink-0" /></span>
+
+                    )
+                  }
                 </div>
                   <div className="flex-shrink-0 text-right">
                     {

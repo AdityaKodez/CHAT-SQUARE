@@ -1,5 +1,5 @@
 import NavBar from "./Pages/NavBar";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Signup from "./Pages/Signup.jsx";
 import Login from "./Pages/Login.jsx";
 import Profile from "./Pages/Profile.jsx";
@@ -15,12 +15,16 @@ import ChatStore from "./store/useChatStore";
 import SettingsPage from "./Pages/Settings.jsx";
 import NotificationService from "./components/NotificationService";
 import { getNotificationPermission } from "./lib/browserNotifications"; // Import this
+import PageTransition from "./components/PageTransition";
+import { VerificationProvider } from "./context/VerificationContext";
+import VerificationPopup from "./components/VerificationPopup"; // Import this
 
 const App = () => {
   const { theme } = useTheme();
   const { authUser, isCheckingAuth } = useAuthStore();
   const isOnline = useNetworkStatus();
   const [notificationPermission, setNotificationPermission] = useState(null);
+  const location = useLocation();
   
   // Check notification permission on mount and periodically
   useEffect(() => {
@@ -146,56 +150,99 @@ const App = () => {
   // Main App Content with smooth transitions
   const AppContent = () => (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="w-screen"
       data-theme={theme}
+      className="w-screen"
+      style={{ 
+        position: "relative",
+        isolation: "isolate"
+      }}
     >
       <NavBar />
-   
-      <Routes>
-        <Route path="/" element={
-          authUser ? <Home /> : <Navigate to="/login" />
-        } />
-        <Route path="/signup" element={
-          authUser ? <Navigate to="/" /> : <Signup />
-        } />
-        <Route path="/login" element={
-          authUser ? <Navigate to="/" /> : <Login />
-        } />
-        <Route path="/profile" element={
-          authUser ? <Profile /> : <Navigate to="/login" />
-        } />
-        <Route path="/settings" element={<SettingsPage/>}/>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route 
+            path="/" 
+            element={
+              authUser ? (
+                <PageTransition>
+                  <Home />
+                </PageTransition>
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+          <Route 
+            path="/signup" 
+            element={
+              authUser ? (
+                <Navigate to="/" />
+              ) : (
+                <PageTransition>
+                  <Signup />
+                </PageTransition>
+              )
+            } 
+          />
+          <Route 
+            path="/login" 
+            element={
+              authUser ? (
+                <Navigate to="/" />
+              ) : (
+                <PageTransition>
+                  <Login />
+                </PageTransition>
+              )
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              authUser ? (
+                <PageTransition>
+                  <Profile />
+                </PageTransition>
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <PageTransition>
+                <SettingsPage />
+              </PageTransition>
+            }
+          />
+          <Route 
+            path="*" 
+            element={
+              <PageTransition>
+                <NotFound />
+              </PageTransition>
+            } 
+          />
+        </Routes>
+      </AnimatePresence>
     </motion.div>
   );
 
   return (
-    <AnimatePresence mode="wait">
-      {isCheckingAuth ? (
-        <Loader key="loader" />
-      ) : (
-        <>
-          {authUser && <NotificationService />}
-          <AppContent key="app-content" />
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              className: '!bg-primary!text-white text-sm font-poppins',
-              iconTheme: {
-                primary: 'white',
-                secondary: 'green',
-              },
-            }}
-          />
-         
-        </>
-      )}
-    </AnimatePresence>
+    <VerificationProvider>
+      <AnimatePresence mode="wait">
+        {isCheckingAuth ? (
+          <Loader key="loader" />
+        ) : (
+          <>
+            {authUser && <NotificationService />}
+            <VerificationPopup /> {/* Move it here */}
+            <AppContent key="app-content" />
+          </>
+        )}
+      </AnimatePresence>
+    </VerificationProvider>
   );
 };
 

@@ -304,7 +304,9 @@ const GlobalChat = () => {
             )
           }
             {globalMessages && globalMessages.map((message) => {
-              const isMyMessage = message.sender._id === authUser._id;
+              const isMyMessage = message?.sender?._id === authUser?._id;
+              const senderName = message?.sender?.fullName || "Unknown User";
+              const senderInitial = senderName[0]?.toUpperCase() || "?";
               
               return (
                 <div
@@ -313,15 +315,15 @@ const GlobalChat = () => {
                 >
                   {!isMyMessage && (
                     <div className="flex-shrink-0 mr-2">
-                      {message.sender.profilePic ? (
+                      {message?.sender?.profilePic ? (
                         <img 
                           src={message.sender.profilePic} 
-                          alt={message.sender.fullName} 
+                          alt={senderName} 
                           className="w-8 h-8 rounded-full object-cover" 
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs">
-                          {message.sender.fullName?.[0]?.toUpperCase() || "?"}
+                          {senderInitial}
                         </div>
                       )}
                     </div>
@@ -333,7 +335,7 @@ const GlobalChat = () => {
                     `}
                   >
                     {!isMyMessage && (
-                      <p className="text-xs font-medium mb-1">{message.sender.fullName}</p>
+                      <p className="text-xs font-medium mb-1">{senderName}</p>
                     )}
                     <p className="text-sm">{message.content}</p>
                     <p

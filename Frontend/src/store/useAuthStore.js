@@ -85,7 +85,7 @@ export const useAuthStore = create((set, get) => ({
       });
   
       // Add a ping mechanism to keep the connection alive
-      const pingInterval = setInterval(() => {
+       setInterval(() => {
         if (newSocket.connected) {
           newSocket.emit("ping");
         }
@@ -202,6 +202,56 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+ sendOTP: async function() {
+const email = get().authUser?.email;
+    if (!email) {
+      toast.error("Please login first");
+      return false;
+    }
+    try {
+      await axiosInstance.post("/auth/send-otp", { email });
+      toast.success("Verification code sent to your email");
+      return true;
+    } catch (error) {
+      console.error("Send OTP error:", error);
+
+      return false;
+    }
+  },
+
+  verifyOTP: async function(otp) {
+    try {
+      const email = get().authUser?.email;
+      if (!email || !otp) {
+        toast.error("Missing email or verification code");
+        return false;
+      }
+      
+      console.log('Sending verification request:', { email, otp });
+      
+      const response = await axiosInstance.post("/auth/verify-otp", { 
+        email: email.trim(),
+        otp: otp.toString().trim()
+      });
+      
+      if (response.data) {
+        // Update local state
+        set(state => ({
+          authUser: {
+            ...state.authUser,
+            isVerified: true
+          }
+        }));
+        return true;
+      }
+      return false;
+      
+    } catch (error) {
+      console.error("Verify OTP error:", error.response || error);
+      return false;
+    }
+  },
+
   signup: async function(userData) {
     set({isSigningIn: true});
     try {
@@ -212,9 +262,30 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.error("Signup error:", error);
       toast.error(error.response?.data?.message || "Signup failed");
-      throw error; // Re-throw to be caught by the component
+      throw error;
     } finally {
       set({isSigningIn: false});
+    }
+  },
+
+  verifyEmail: async function() {
+    try {
+      const email = get().authUser?.email;
+      if (!email) {
+        toast.error("Please login first");
+        return false;
+      }
+  
+      // Call sendOTP without passing email since it's already getting it inside
+      const otpSent = await get().sendOTP();
+      if (!otpSent) {
+        throw new Error("Failed to send verification code");
+      }
+      return true;
+    } catch (error) {
+      console.error("Verify email error:", error);
+      toast.error(error.response?.data?.message || "Failed to start verification");
+      return false;
     }
   }
 }));

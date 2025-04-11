@@ -6,6 +6,8 @@ import GlobalChat from "../components/GlobalChat";
 import ChatContainer from "./ChatContainer";
 import Nochatselected from "./Nochatselected";
 import{Toaster,toast} from "react-hot-toast";
+import { motion } from "framer-motion";
+import { childVariants } from "@/components/PageTransition";
 
 const Home = () => {
   const {
@@ -42,7 +44,7 @@ const Home = () => {
     // Listen for new_notification event
     if (socket) {
       socket.on("new_notification", (notification) => {
-        let { from, message } = notification;
+        let {message } = notification;
         // Convert message to string if needed
         if (typeof message !== "string") {
           message = JSON.stringify(message);
@@ -90,12 +92,18 @@ const Home = () => {
 
   return (
     <div className="h-screen bg-base-200 w-full">
-      <div className="flex justify-center items-center pt-17 px-0 h-full">
-        <div className="bg-base-100 shadow-cl w-full h-full flex">
+      <motion.div 
+        variants={childVariants}
+        className="flex justify-center items-center pt-17 px-0 h-full"
+      >
+        <motion.div 
+          variants={childVariants}
+          className="bg-base-100 shadow-cl w-full h-full flex"
+        >
           <Sidebar />
           {renderChatComponent()}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

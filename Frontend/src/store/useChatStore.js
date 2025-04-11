@@ -722,12 +722,11 @@ deleteGlobalMessage: async function(messageId) {
   },
   EditMessages: async function({ messageId, content, userId }) {
     try {
-      // Send edit request to server
-      const res = await axiosInstance.put("/message/edit", { 
-        messageId, 
+      // Update URL to match backend route
+      const res = await axiosInstance.put(`/message/edit/${messageId}`, { 
         newContent: content 
       });
-  
+      
       // Update local state immediately
       set((state) => {
         const updatedConversations = { ...state.conversations };

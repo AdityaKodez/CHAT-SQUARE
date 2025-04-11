@@ -5,14 +5,14 @@ import toast, { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Profile = () => {
-  const { authUser, isUpdatingProfile, updateProfile, logout, DeleteAccount } = useAuthStore();
+  const { authUser, isUpdatingProfile, updateProfile, DeleteAccount } = useAuthStore();
   const [charCount, setCharCount] = useState(authUser?.description?.length || 0);
   const MAX_CHARS = 100;
-
   const [notificationPermission, setNotificationPermission] = useState(
     Notification.permission
   );
-
+ 
+  
   useEffect(() => {
     // Update the permission state when the component mounts
     setNotificationPermission(Notification.permission);
@@ -257,11 +257,7 @@ const Profile = () => {
             
           </div>
           <div className='flex gap-3'>
-            <button onClick={logout} className="btn btn-sm btn-outline btn-info flex items-center gap-1 px-3">
-              <LogOutIcon size="1rem"/>
-              <span>Logout</span>
-            </button>
-         
+
             <button onClick={() => setShowDeleteModal(true)} className="btn btn-sm btn-soft btn-error flex items-center gap-1 px-3">
               <User2 size="1rem"/>
               <span>Delete Account</span>
@@ -354,7 +350,8 @@ const Profile = () => {
               </div>
             </div> 
 
-          
+  
+
             <div className="flex flex-col w-full gap-4">
               <button
                 type="submit"
@@ -430,5 +427,6 @@ const Profile = () => {
     </div>
   );
 };
+
 
 export default Profile;

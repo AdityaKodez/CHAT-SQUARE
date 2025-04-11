@@ -392,29 +392,35 @@ useEffect(() => {
           ) : (
             <button
               onClick={() => setShowProfileModal(true)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity ${getRandomColor(
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium cursor-pointer hover:opacity-80 transition-opacity capitalize ${getRandomColor(
                 SelectedUser._id
               )}`}
             >
               {userFirstInitial}
+
             </button>
           )}
           <div className="flex-1 flex flex-col">
             <div className="flex justify-between items-center w-full">
               <div className="flex items-center gap-1">
-                <h3 className="font-medium text-sm">{userFullName}</h3>
-                {SelectedUser.isVerified && (
+                <button
+                  onClick={() => setShowProfileModal(true)}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                  <h3 className="font-medium text-sm">{userFullName}</h3>
+                </button>
+              
+                {SelectedUser.isVerified && SelectedUser.fullName === "Faker" && (
                   <BadgeCheck className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                )}
+                {SelectedUser.isVerified && SelectedUser.fullName !== "Faker" && (
+                  <span className="text-xs text-amber-400 font-medium">
+                    <BadgeCheck className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  </span>
                 )}
               </div>
               <div className="ml-auto flex items-center gap-3">
-                <button
-                  onClick={() => setShowProfileModal(true)}
-                  className="text-primary hover:text-primary-focus transition-colors"
-                  title="View profile"
-                >
-                  <Info size={16} />
-                </button>
+             
                 {onlineUsers.includes(SelectedUser._id) ? (
                   <span className="text-xs text-success">Online</span>
                 ) : (
@@ -447,121 +453,135 @@ useEffect(() => {
                 <p className="font-work-sans">Start Your Chat Now!!</p>
               </div>
             )}
+            {/* messages */}
             {messages.map((message) => {
               const isMyMessage = message.sender === authUser._id;
-              return (
+                return (
                 <div
                   key={`${message._id}-${message.createdAt}`}
                   className={`flex ${isMyMessage ? "justify-end" : "justify-start"}`}
+                  onClick={() => {
+                  if (window.innerWidth < 900) {
+                    const buttons = document.querySelectorAll(
+                    `[data-message-id="${message._id}"]`
+                    );
+                    buttons.forEach((button) => {
+                    button.classList.toggle("opacity-100");
+                    });
+                  }
+                  }}
                 >
                   <div
-                    className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${
-                      isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"
+                  className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${
+                    isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"
+                  }`}
+                  >
+                  {editingMessageId === message._id ? (
+                    <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    >
+                    <textarea
+                      ref={editInputRef}
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full resize-none rounded-sm px-2 py-1 text-sm bg-primary-foreground/50 border-none focus:outline-none focus:ring-1 focus:ring-primary text-primary-content"
+                      onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSaveEdit();
+                      } else if (e.key === "Escape") {
+                        handleCancelEdit();
+                      }
+                      }}
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                      onClick={handleCancelEdit}
+                      className="text-[10px] opacity-70 hover:opacity-100"
+                      >
+                      Cancel
+                      </button>
+                      <button
+                      onClick={handleSaveEdit}
+                      className="text-[10px] font-medium opacity-70 hover:opacity-100"
+                      >
+                      Save
+                      </button>
+                    </div>
+                    </motion.div>
+                  ) : (
+                    <ReactLinkify
+                    componentDecorator={(href, text, key) => (
+                      <a
+                      href={href}
+                      key={key}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={
+                        isMyMessage
+                        ? "text-white underline hover:text-primary-content/80"
+                        : "text-blue-500 underline hover:text-blue-600"
+                      }
+                      >
+                      {text}
+                      </a>
+                    )}
+                    >
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    </ReactLinkify>
+                  )}
+                  <p
+                    className={`text-[10px] mt-1.5 ${
+                    isMyMessage
+                      ? "text-primary-content/70"
+                      : "text-base-content/70"
                     }`}
                   >
-                    {editingMessageId === message._id ? (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                      >
-                        <textarea
-                          ref={editInputRef}
-                          value={editingContent}
-                          onChange={(e) => setEditingContent(e.target.value)}
-                          className="w-full resize-none rounded-sm px-2 py-1 text-sm bg-primary-foreground/50 border-none focus:outline-none focus:ring-1 focus:ring-primary text-primary-content"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSaveEdit();
-                            } else if (e.key === "Escape") {
-                              handleCancelEdit();
-                            }
-                          }}
-                        />
-                        <div className="flex justify-end gap-2 mt-2">
-                          <button
-                            onClick={handleCancelEdit}
-                            className="text-[10px] opacity-70 hover:opacity-100"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleSaveEdit}
-                            className="text-[10px] font-medium opacity-70 hover:opacity-100"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <ReactLinkify
-                        componentDecorator={(href, text, key) => (
-                          <a
-                            href={href}
-                            key={key}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={
-                              isMyMessage
-                                ? "text-white underline hover:text-primary-content/80"
-                                : "text-blue-500 underline hover:text-blue-600"
-                            }
-                          >
-                            {text}
-                          </a>
-                        )}
-                      >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      </ReactLinkify>
-                    )}
+                    {new Date(message.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    })}
+                    {message.edited && " (edited)"}
+                  </p>
+                  {seen && isMyMessage && (
                     <p
-                      className={`text-[10px] mt-1.5 ${
-                        isMyMessage
-                          ? "text-primary-content/70"
-                          : "text-base-content/70"
-                      }`}
+                    className={`text-[10px] mt-1.5 ${
+                      isMyMessage
+                      ? "text-primary-content/50"
+                      : "text-base-content/70"
+                    }`}
                     >
-                      {new Date(message.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {message.edited && " (edited)"}
+                    {message.isRead ? "Seen" : "Delivered"}
                     </p>
-                    {seen && isMyMessage && (
-                      <p
-                        className={`text-[10px] mt-1.5 ${
-                          isMyMessage
-                            ? "text-primary-content/50"
-                            : "text-base-content/70"
-                        }`}
-                      >
-                        {message.isRead ? "Seen" : "Delivered"}
-                      </p>
-                    )}
-                    {isMyMessage && (
-                      <div className="absolute -right-3 -top-3 flex gap-1">
-                        <motion.button
-                          onClick={() => handleStartEdit(message)}
-                          whileHover={{ scale: 1.1 }}
-                          className="bg-primary text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity"
-                          aria-label="Edit message"
-                        >
-                          <Edit2 size={14} />
-                        </motion.button>
-                        <motion.button
-                          onClick={() => DeleteMessage(message._id, SelectedUser._id)}
-                          whileHover={{ scale: 1.1 }}
-                          className="bg-error text-white p-1 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 focus:opacity-100 transition-opacity"
-                          aria-label="Delete message"
-                        >
-                          <Trash2 size={14} />
-                        </motion.button>
-                      </div>
-                    )}
+                  )}
+                  {isMyMessage && (
+                    <div
+                    className="absolute -right-3 -top-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    data-message-id={message._id}
+                    >
+                    <motion.button
+                      onClick={() => handleStartEdit(message)}
+                      whileHover={{ scale: 1.1 }}
+                      className="bg-primary text-white p-1 rounded-full active:opacity-100 focus:opacity-100 transition-opacity"
+                      aria-label="Edit message"
+                    >
+                      <Edit2 size={14} />
+                    </motion.button>
+                    <motion.button
+                      onClick={() => DeleteMessage(message._id, SelectedUser._id)}
+                      whileHover={{ scale: 1.1 }}
+                      className="bg-error text-white p-1 rounded-full active:opacity-100 focus:opacity-100 transition-opacity"
+                      aria-label="Delete message"
+                    >
+                      <Trash2 size={14} />
+                    </motion.button>
+                    </div>
+                  )}
                   </div>
                 </div>
-              );
+                );
             })}
             {/* Typing Indicator */}
             {isOtherUserTyping && (
@@ -659,7 +679,7 @@ useEffect(() => {
                   />
                 ) : (
                   <div
-                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ${getRandomColor(
+                    className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold capitalize ${getRandomColor(
                       SelectedUser._id
                     )}`}
                   >
@@ -673,8 +693,13 @@ useEffect(() => {
                 )}
                 <div className="flex items-center gap-1 mb-1">
                   <h3 className="text-xl font-bold">{SelectedUser.fullName}</h3>
-                  {SelectedUser.isVerified && (
+                  {SelectedUser.isVerified && SelectedUser.fullName === "Faker" && (
                     <BadgeCheck className="w-5 h-5 text-amber-400 flex-shrink-0" />
+                  )}
+                  {SelectedUser.isVerified && SelectedUser.fullName !== "Faker" && (
+                    <span className="text-amber-400 font-medium">
+                      <BadgeCheck className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                    </span>
                   )}
                 </div>
                 <div className="mb-4">
