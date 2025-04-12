@@ -256,9 +256,7 @@ const App = () => {
 
   return (
     <VerificationProvider>
-      <Toaster 
-        // ... toaster props ...
-      />
+
       <AnimatePresence mode="wait">
         {/* Show loader while checking auth OR if authUser is null but check isn't finished */}
         {isCheckingAuth || (!authUser && isCheckingAuth === undefined) ? ( 
