@@ -204,7 +204,7 @@ const NotificationCenter = () => {
       opacity: 1,
       x: 0,
       transition: {
-        type: "spring",
+        type: "spring",   
         stiffness: 400,
         damping: 25,
       },

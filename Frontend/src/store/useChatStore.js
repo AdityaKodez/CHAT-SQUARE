@@ -26,6 +26,7 @@ const ChatStore = create((set, get) => ({
   blockedUsers: [], // Initialize blockedUsers state
   isBlocking: false, // Add state for loading indicator
   unreadCounts: {}, // Store unread message counts per user
+  isFetchingBlockedUsers: false, // Add this state
   // Add this method to update online users
   setOnlineUsers: (onlineUserIds) => {
     set({ onlineUsers: onlineUserIds });
@@ -850,14 +851,19 @@ deleteGlobalMessage: async function(messageId) {
 
   // Function to fetch initial blocked users (call this on app load/login)
   fetchBlockedUsers: async () => {
+    set({ isFetchingBlockedUsers: true }); // Set loading true
     try {
       // Assuming your backend has an endpoint like /auth/blocked-users
       const res = await axiosInstance.get("/auth/blocked-users");
-      set({ blockedUsers: res.data.blockedUsers || [] });
+      // Ensure the response data is an array, default to empty array if not
+      const blockedIds = Array.isArray(res.data) ? res.data.map(user => user._id) : [];
+      set({ blockedUsers: blockedIds });
     } catch (error) {
       console.error("Error fetching blocked users:", error);
       // Handle error appropriately, maybe set to empty array
       set({ blockedUsers: [] });
+    } finally {
+      set({ isFetchingBlockedUsers: false }); // Set loading false
     }
   },
 
@@ -909,9 +915,5 @@ deleteGlobalMessage: async function(messageId) {
     }
   },
 }));
-
-// Fetch blocked users when the store initializes or user logs in
-// You might need to call this explicitly after login in your auth flow
-ChatStore.getState().fetchBlockedUsers();
 
 export default ChatStore;

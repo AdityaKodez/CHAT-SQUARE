@@ -21,7 +21,8 @@ import VerificationPopup from "./components/VerificationPopup"; // Import this
 
 const App = () => {
   const { theme } = useTheme();
-  const { authUser, isCheckingAuth } = useAuthStore();
+  // Get authUser directly from the hook to ensure reactivity
+  const { authUser, isCheckingAuth, checkAuth } = useAuthStore(); 
   const isOnline = useNetworkStatus();
   const [notificationPermission, setNotificationPermission] = useState(null);
   const location = useLocation();
@@ -51,14 +52,48 @@ const App = () => {
       return () => clearInterval(permissionInterval);
     }
   }, [authUser]);
-  
+
+  // Effect for checking authentication status on initial load
   useEffect(() => {
-    // Initialize socket listeners when socket is available
-    const { socket } = useAuthStore.getState();
+      if (!authUser) {
+        checkAuth(); 
+      }
+  },[authUser, checkAuth]); // Depend on checkAuth and authUser
+
+  // Effect to fetch blocked users *after* authUser is confirmed
+  useEffect(() => {
+    if (authUser && !isCheckingAuth) { // Ensure auth check is complete AND user exists
+      console.log("[App.jsx] Auth user confirmed, fetching blocked users...");
+      ChatStore.getState().fetchBlockedUsers();
+    }
+  }, [authUser, isCheckingAuth]); // Re-run when authUser or isCheckingAuth changes
+
+  // Effect for socket initialization and listeners
+  useEffect(() => {
+    const { socket, connectSocket, disconnectSocket } = useAuthStore.getState();
+    if (authUser && !socket) {
+      console.log("[App.jsx] Connecting socket...");
+      connectSocket();
+    } else if (!authUser && socket) {
+      console.log("[App.jsx] Disconnecting socket...");
+      disconnectSocket();
+    }
+
+    // Setup listeners if socket exists
     if (socket) {
+      console.log("[App.jsx] Initializing socket listeners...");
       ChatStore.getState().initializeSocketListeners();
     }
-  }, [useAuthStore.getState().socket]);
+
+    // Cleanup listeners on unmount or when socket changes
+    return () => {
+      if (socket) {
+        console.log("[App.jsx] Cleaning up socket listeners...");
+        // Remove specific listeners if initializeSocketListeners doesn't handle full cleanup
+        // socket.off("..."); 
+      }
+    };
+  }, [authUser]); // Rerun when authUser changes
   
   useEffect(() => {
     if (!isOnline) {
@@ -68,16 +103,6 @@ const App = () => {
     }
   }, [isOnline]);
   
-  useEffect(() => {
-    const checkAuth = async () => {
-      if (isCheckingAuth) {
-        await useAuthStore.getState().checkAuth();
-      }
-    };
-    const timer = setTimeout(checkAuth, 2000);
-    return () => clearTimeout(timer); // Cleanup timeout on unmount
-  }, [isCheckingAuth]);
-
   // Show notification blocked warning if needed
   useEffect(() => {
     if (authUser && notificationPermission === 'denied') {
@@ -231,8 +256,12 @@ const App = () => {
 
   return (
     <VerificationProvider>
+      <Toaster 
+        // ... toaster props ...
+      />
       <AnimatePresence mode="wait">
-        {isCheckingAuth ? (
+        {/* Show loader while checking auth OR if authUser is null but check isn't finished */}
+        {isCheckingAuth || (!authUser && isCheckingAuth === undefined) ? ( 
           <Loader key="loader" />
         ) : (
           <>

@@ -53,8 +53,9 @@ const ChatContainer = () => {
     markMessagesAsSeen, // Keep this
     blockUser,
     unblockUser,
-    blockedUsers,
+    blockedUsers, // Ensure this is correctly destructured
     isBlocking,
+    isFetchingBlockedUsers, // Import the new loading state
   } = ChatStore()
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false)
   const userFullName = SelectedUser?.fullName
@@ -348,11 +349,44 @@ const ChatContainer = () => {
     }
   }
 
-  // Determine block status
-  const isBlockedByMe = useMemo(() => blockedUsers.includes(SelectedUser?._id), [blockedUsers, SelectedUser])
-  // Assuming the backend sends information if the current user is blocked by the selected user
-  const isBlockedByThem = useMemo(() => SelectedUser?.isBlockedViewer, [SelectedUser])
-  const isChatBlocked = isBlockedByMe || isBlockedByThem
+  // Determine block status with logging
+  const isBlockedByMe = useMemo(() => {
+    const blocked = blockedUsers.includes(SelectedUser?._id);
+    // Log the calculation details
+    console.log("[ChatContainer] isBlockedByMe Check:", { 
+      selectedUserId: SelectedUser?._id, 
+      blockedUsersArray: blockedUsers, 
+      result: blocked 
+    });
+    return blocked;
+  }, [blockedUsers, SelectedUser?._id]); // Depend specifically on SelectedUser._id
+
+  const isBlockedByThem = useMemo(() => {
+    const blocked = SelectedUser?.isBlockedViewer;
+     // Log the calculation details
+    console.log("[ChatContainer] isBlockedByThem Check:", { 
+      selectedUser: SelectedUser, 
+      isBlockedViewerProp: SelectedUser?.isBlockedViewer,
+      result: blocked 
+    });
+    return !!blocked; // Ensure boolean
+  }, [SelectedUser?.isBlockedViewer]); // Depend specifically on the property
+
+  const isChatBlocked = useMemo(() => {
+    const blocked = isBlockedByMe || isBlockedByThem;
+    // Log the final result
+    console.log("[ChatContainer] isChatBlocked Calculated:", { 
+      isBlockedByMe, 
+      isBlockedByThem, 
+      result: blocked 
+    });
+    return blocked;
+  }, [isBlockedByMe, isBlockedByThem]);
+
+  // Add a useEffect to specifically log when isChatBlocked changes value
+  useEffect(() => {
+    console.log("[ChatContainer] isChatBlocked state updated:", isChatBlocked);
+  }, [isChatBlocked]);
 
   const handleBlock = async () => {
     if (!SelectedUser || isBlocking) return // Prevent action if already blocking
@@ -508,7 +542,7 @@ const ChatContainer = () => {
                     transition={{ duration: 0.2 }}
                     className={`relative group max-w-[80%] rounded-xl p-3 shadow-sm ${
                       isMyMessage ? "bg-primary text-primary-content" : "bg-base-200"
-                    } ${isChatBlocked ? "opacity-70 hover:opacity-90 transition-opacity" : ""}`}
+                    } ${isChatBlocked ? "opacity-70" : ""}`} 
                   >
                     {editingMessageId === message._id ? (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -663,8 +697,9 @@ const ChatContainer = () => {
               ref={textareaRef}
               name="message"
               placeholder="Type a message..."
-              className="w-full resize-none rounded-sm px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full resize-none rounded-sm px-4 py-2 max-h-32 min-h-[42px] text-sm bg-base-200 border-none focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed" // Add disabled styles
               rows="1"
+              disabled={isFetchingBlockedUsers || isBlocking} // Disable while fetching or blocking
               onKeyDown={(e) => {
                 if (window.innerWidth >= 900) {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -690,7 +725,11 @@ const ChatContainer = () => {
               onChange={handleInputChange}
               autoComplete="off"
             />
-            <button type="submit" className="btn btn-primary btn-circle">
+            <button 
+              type="submit" 
+              className="btn btn-primary btn-circle"
+              disabled={isFetchingBlockedUsers || isBlocking} // Disable while fetching or blocking
+            >
               <Send size={18} />
             </button>
           </div>
