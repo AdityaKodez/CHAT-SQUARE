@@ -1,6 +1,6 @@
 "use client"
 
-import { MessageSquare, Settings, User2Icon, ShieldCheck, LogOut, Mail, ChevronRight } from "lucide-react"
+import { MessageSquare, Settings, User2Icon, ShieldCheck, LogOut, Mail, ChevronRight, Loader2 } from "lucide-react" // Added Loader2
 import { useAuthStore } from "@/store/useAuthStore"
 import { Link } from "react-router-dom"
 import NotificationCenter from "@/components/NotificationCenter"
@@ -11,7 +11,7 @@ import VerificationPopup from "@/components/VerificationPopup"
 import { useVerification } from "@/context/VerificationContext";
 
 const NavBar = () => {
-  const { authUser, logout } = useAuthStore()
+  const { authUser, logout, isLoggingOut } = useAuthStore() // Destructure isLoggingOut
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [showVerification, setShowVerification] = useState(false)
   const menuRef = useRef(null)
@@ -259,16 +259,23 @@ const NavBar = () => {
                     <motion.div variants={menuItemVariants}>
                       <button
                         onClick={() => {
-                          logout()
-                          setIsProfileMenuOpen(false)
+                          if (!isLoggingOut) { // Prevent multiple clicks while logging out
+                            logout()
+                            setIsProfileMenuOpen(false)
+                          }
                         }}
-                        className="flex items-center justify-between px-4 py-2.5 text-sm text-error hover:bg-error/10 transition-colors duration-200 w-full"
+                        disabled={isLoggingOut} // Disable button while logging out
+                        className="flex items-center justify-between px-4 py-2.5 text-sm text-error hover:bg-error/10 transition-colors duration-200 w-full disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
                           <div className="bg-error/10 p-1.5 rounded-md">
-                            <LogOut size="0.9rem" className="text-error" />
+                            {isLoggingOut ? (
+                              <Loader2 size="0.9rem" className="text-error animate-spin" />
+                            ) : (
+                              <LogOut size="0.9rem" className="text-error" />
+                            )}
                           </div>
-                          <span>Logout</span>
+                          <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
                         </div>
                       </button>
                     </motion.div>

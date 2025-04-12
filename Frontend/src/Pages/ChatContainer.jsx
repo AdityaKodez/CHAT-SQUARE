@@ -520,7 +520,7 @@ const ChatContainer = () => {
               const senderId = message?.sender?._id ?? message?.sender; // Handle both object and string ID cases
               const authId = authUser?._id;
               const isMyMessage = senderId === authId;
-              console.log(`Msg ID: ${message._id}, Sender ID: ${senderId} (Type: ${typeof senderId}), Auth ID: ${authId} (Type: ${typeof authId}), Is Mine: ${isMyMessage}`);
+              // console.log(`Msg ID: ${message._id}, Sender ID: ${senderId} (Type: ${typeof senderId}), Auth ID: ${authId} (Type: ${typeof authId}), Is Mine: ${isMyMessage}`);
               // --- End Debugging Logs ---
 
               return (

@@ -13,6 +13,7 @@ export const useAuthStore = create((set, get) => ({
   isSigningIn: false,
   isLoggingin: false,
   isUpdatingProfile: false,
+  isLoggingOut: false, // Add this state
   socket: null,
 
   // Add the missing checkAuth function
@@ -147,6 +148,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   logout: async function() {
+    set({ isLoggingOut: true }); // Set loading true
     try {
       // Update lastOnline first before disconnecting
       try {
@@ -170,6 +172,8 @@ export const useAuthStore = create((set, get) => ({
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Failed to log out");
+    } finally {
+      set({ isLoggingOut: false }); // Set loading false regardless of outcome
     }
   },
 
