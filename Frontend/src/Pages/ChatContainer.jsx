@@ -47,23 +47,22 @@ const ChatContainer = () => {
     sendMessage,
     isMessageLoading,
     getMessages,
-    handleNewMessage,
     DeleteMessage,
     EditMessages,
     sendTypingStatus,
-    markMessagesAsSeen,
+    markMessagesAsSeen, // Keep this
     blockUser,
     unblockUser,
     blockedUsers,
-    isBlocking, // Get the loading state
+    isBlocking,
   } = ChatStore()
-  const [seen, setSeen] = useState(false)
   const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false)
   const userFullName = SelectedUser?.fullName
   const userFirstInitial = userFullName?.[0] || "?"
   const [editingMessageId, setEditingMessageId] = useState(null)
   const [editingContent, setEditingContent] = useState("")
   const editInputRef = useRef(null)
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true); // Re-add local scroll state
 
   const handleStartEdit = (message) => {
     setEditingMessageId(message._id)
@@ -116,7 +115,6 @@ const ChatContainer = () => {
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
-  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true)
   const [showProfileModal, setShowProfileModal] = useState(false)
 
   const scrollToBottom = useCallback((behavior = "smooth") => {
@@ -169,43 +167,73 @@ const ChatContainer = () => {
     }
   }, [SelectedUser, currentPage, isLoadingMoreMessages, hasMore, getMessages])
 
-  // Handling scroll events
+  // Handling scroll events - Simplified back
   const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current
-    if (!container) return
-    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
-    setIsScrolledToBottom(isAtBottom)
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    setIsScrolledToBottom(isAtBottom); // Update local state
+
+    // If scrolled to bottom and window is visible, mark messages seen
     if (isAtBottom && document.visibilityState === "visible" && SelectedUser) {
-      setSeen(true)
-      markMessagesAsSeen(SelectedUser._id)
+      console.log("handleScroll: At bottom and visible, calling markMessagesAsSeen");
+      markMessagesAsSeen(SelectedUser._id);
     }
+
+    // Load more messages logic
     if (container.scrollTop < 20 && hasMore && !isLoadingMoreMessages) {
-      loadMoreMessages()
+      loadMoreMessages();
     }
-  }, [hasMore, isLoadingMoreMessages, loadMoreMessages, SelectedUser, markMessagesAsSeen])
+  }, [SelectedUser, hasMore, isLoadingMoreMessages, loadMoreMessages, markMessagesAsSeen]); // Added markMessagesAsSeen
 
+  // Add/remove scroll listener
   useEffect(() => {
-    const container = messagesContainerRef.current
+    const container = messagesContainerRef.current;
     if (container) {
-      container.addEventListener("scroll", handleScroll)
-      return () => container.removeEventListener("scroll", handleScroll)
+      container.addEventListener("scroll", handleScroll);
+      // Initial check if scrolled to bottom on mount
+      const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      setIsScrolledToBottom(isAtBottom);
+      return () => container.removeEventListener("scroll", handleScroll);
     }
-  }, [handleScroll])
+  }, [handleScroll]); // Dependency is just handleScroll
 
+  // Scroll to bottom on initial load/user change
   useEffect(() => {
-    if (!isMessageLoading && messages.length > 0) {
-      scrollToBottom("auto")
-      setIsScrolledToBottom(true)
+    scrollToBottom("auto");
+    setIsScrolledToBottom(true); // Assume user starts at bottom
+  }, [SelectedUser?._id, scrollToBottom]);
+
+  // Scroll smoothly when new messages arrive IF user was previously at the bottom
+  useEffect(() => {
+    // Check scroll position *before* new messages render might be tricky.
+    // Let's scroll if the *current* state indicates we are near the bottom.
+    if (isScrolledToBottom && !isLoadingMoreMessages) {
+      scrollToBottom("smooth");
     }
-  }, [isMessageLoading, messages.length, scrollToBottom])
+  }, [messages, scrollToBottom, isLoadingMoreMessages, isScrolledToBottom]); // Use local isScrolledToBottom
 
+  // Fetch initial messages
   useEffect(() => {
-    setCurrentPage(1)
-    setHasMore(true)
+    setCurrentPage(1);
+    setHasMore(true);
+    setIsScrolledToBottom(true); // Reset scroll tracker on user change
     if (SelectedUser?._id) {
-      getMessages({ userId: SelectedUser._id, page: 1 })
+      getMessages({ userId: SelectedUser._id, page: 1 }).then(() => {
+         // After messages load, check scroll position again and mark seen if needed
+         const container = messagesContainerRef.current;
+         if (container) {
+            const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+            setIsScrolledToBottom(isAtBottom);
+            if (isAtBottom && document.visibilityState === "visible") {
+               console.log("Initial load: At bottom and visible, calling markMessagesAsSeen");
+               markMessagesAsSeen(SelectedUser._id);
+            }
+         }
+      });
     }
-  }, [SelectedUser?._id, getMessages])
+  }, [SelectedUser?._id, getMessages, markMessagesAsSeen]); // Added markMessagesAsSeen
 
   const [isTyping, setIsTyping] = useState(false)
   const typingTimeoutRef = useRef(null)
@@ -244,97 +272,57 @@ const ChatContainer = () => {
         setIsOtherUserTyping(isTyping)
       }
     }
-    const handlePrivateMessage = ({ from, message }) => {
-      if (from === SelectedUser._id) {
-        setIsOtherUserTyping(false)
-      }
-      handleNewMessage(message)
-    }
     const handleMessageDeletion = ({ messageId, conversationId }) => {
-      DeleteMessage(messageId, conversationId)
+      // Check if the deletion is for the currently selected conversation
+      if (conversationId === SelectedUser?._id) {
+        // Let the store handle the state update, maybe just log here
+        console.log(`Deletion event for current chat: ${messageId}`);
+      }
     }
-    const handleMessageEdit = ({ messageId, newContent }) => {
-      ChatStore.setState((state) => {
-        const updatedConversations = { ...state.conversations }
-        const currentConversation = updatedConversations[SelectedUser._id]
-
-        if (currentConversation) {
-          updatedConversations[SelectedUser._id] = currentConversation.map((msg) =>
-            msg._id === messageId ? { ...msg, content: newContent, edited: true } : msg,
-          )
-          return { conversations: updatedConversations }
-        }
-        return state
-      })
+    const handleMessageEdit = ({ messageId }) => { // Removed 'to' as it might not be reliable here
+        // Let the store handle the actual state update globally
+        // We might not need component-specific logic if store handles it well
+        console.log(`Edit event received in component: ${messageId}`);
     }
 
-    socket.off("typing").off("private message").off("message_deleted").off("message_edited")
+    // Remove previous listeners specific to this component instance if any
+    socket.off("typing");
+    // socket.off("private_message"); // Remove if handled by store
+    socket.off("message_deleted");
+    socket.off("message_edited");
 
-    socket.on("typing", handleTyping)
-    socket.on("private message", handlePrivateMessage)
-    socket.on("message_deleted", handleMessageDeletion)
-    socket.on("message_edited", handleMessageEdit)
+    // Add listeners
+    socket.on("typing", handleTyping);
+    // socket.on("private_message", handlePrivateMessage); // Remove if handled by store
+    socket.on("message_deleted", handleMessageDeletion); // Keep if specific UI logic needed
+    socket.on("message_edited", handleMessageEdit); // Keep if specific UI logic needed
 
     return () => {
-      socket.off("typing", handleTyping)
-      socket.off("private message", handlePrivateMessage)
-      socket.off("message_deleted", handleMessageDeletion)
-      socket.off("message_edited", handleMessageEdit)
+      // Cleanup listeners on component unmount or when SelectedUser/socket changes
+      socket.off("typing", handleTyping);
+      // socket.off("private_message", handlePrivateMessage);
+      socket.off("message_deleted", handleMessageDeletion);
+      socket.off("message_edited", handleMessageEdit);
     }
-  }, [socket, SelectedUser, handleNewMessage, DeleteMessage])
+    // Rerun effect if socket or SelectedUser changes. handleNewMessage/DeleteMessage refs shouldn't change.
+  }, [socket, SelectedUser]); // Removed authUser?._id dependency as it's stable
 
-  useEffect(() => {
-    if (isScrolledToBottom && !isLoadingMoreMessages) {
-      scrollToBottom()
-    }
-  }, [messages, scrollToBottom, isScrolledToBottom, isLoadingMoreMessages])
-
-  useEffect(() => {
-    if (SelectedUser && messages.length > 0) {
-      const container = messagesContainerRef.current
-      if (!container) return
-
-      const lastMessage = messages[messages.length - 1]
-      const isVisible = container.scrollHeight - container.scrollTop - container.clientHeight < 100
-      const isActiveChat = document.visibilityState === "visible"
-      const isOtherUserMessage = lastMessage.sender === SelectedUser._id
-
-      if (isVisible && isActiveChat && isOtherUserMessage) {
-        markMessagesAsSeen(SelectedUser._id)
-      }
-    }
-  }, [SelectedUser, messages, markMessagesAsSeen])
-
+  // Handle visibility change - Simplified back
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && SelectedUser && messages.length > 0 && isScrolledToBottom) {
-        markMessagesAsSeen(SelectedUser._id)
+      if (document.visibilityState === "visible" && isScrolledToBottom && SelectedUser) {
+         console.log("Visibility changed: Visible and at bottom, calling markMessagesAsSeen");
+         markMessagesAsSeen(SelectedUser._id);
       }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    // Initial check on mount
+    if (document.visibilityState === "visible" && isScrolledToBottom && SelectedUser) {
+        console.log("Initial mount: Visible and at bottom, calling markMessagesAsSeen");
+        markMessagesAsSeen(SelectedUser._id);
     }
-
-    document.addEventListener("visibilitychange", handleVisibilityChange)
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
-  }, [SelectedUser, messages, isScrolledToBottom, markMessagesAsSeen])
-
-  // Reset seen state when switching to a different conversation
-  useEffect(() => {
-    setSeen(false)
-  }, [SelectedUser])
-
-  // When messages update, if chat is scrolled to the bottom and window is visible,
-  // mark messages as seen and update the "seen" state.
-  useEffect(() => {
-    if (SelectedUser && messages.length > 0) {
-      const container = messagesContainerRef.current
-      if (container) {
-        const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100
-        if (isAtBottom && document.visibilityState === "visible") {
-          setSeen(true)
-          markMessagesAsSeen(SelectedUser._id)
-        }
-      }
-    }
-  }, [messages, SelectedUser, markMessagesAsSeen])
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isScrolledToBottom, SelectedUser, markMessagesAsSeen]); // Depend on local scroll state
 
   const handleSubmit = async (e) => {
     if (e && typeof e.preventDefault === "function") {
@@ -354,7 +342,6 @@ const ChatContainer = () => {
       if (socket) {
         socket.emit("typing", { to: SelectedUser._id, isTyping: false })
       }
-      setIsScrolledToBottom(true)
       setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
       console.error("Error sending message:", error)
@@ -495,7 +482,13 @@ const ChatContainer = () => {
             )}
             {/* messages */}
             {messages.map((message) => {
-              const isMyMessage = message.sender === authUser._id
+              // --- Debugging Logs for isMyMessage ---
+              const senderId = message?.sender?._id ?? message?.sender; // Handle both object and string ID cases
+              const authId = authUser?._id;
+              const isMyMessage = senderId === authId;
+              console.log(`Msg ID: ${message._id}, Sender ID: ${senderId} (Type: ${typeof senderId}), Auth ID: ${authId} (Type: ${typeof authId}), Is Mine: ${isMyMessage}`);
+              // --- End Debugging Logs ---
+
               return (
                 <div
                   key={`${message._id}-${message.createdAt}`}
@@ -577,12 +570,13 @@ const ChatContainer = () => {
                       })}
                       {message.edited && " (edited)"}
                     </p>
-                    {seen && isMyMessage && !isChatBlocked && (
+                    {isMyMessage && !isChatBlocked && (
                       <p
-                        className={`text-[10px] mt-1.5 ${
+                        className={`text-[10px] mt-0.5 ${ // Adjusted margin slightly
                           isMyMessage ? "text-primary-content/50" : "text-base-content/70"
                         }`}
                       >
+                        {/* Check the specific message's isRead status */}
                         {message.isRead ? "Seen" : "Delivered"}
                       </p>
                     )}

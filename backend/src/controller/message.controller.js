@@ -408,12 +408,19 @@ export const markMessagesAsRead = async (req, res) => {
 };
 
 export const markMessagesAsSeen = async (req, res) => {
+  console.log("Backend: Entered markMessagesAsSeen controller"); // Log controller entry
   try {
     const userId = req.user._id;
     const { senderId } = req.body; // expect senderId from frontend
+    console.log(`Backend: Marking messages from sender ${senderId} as seen for receiver ${userId}`); // Log IDs
+
+    if (!senderId) {
+       console.log("Backend: senderId missing in request body for markMessagesAsSeen");
+       return res.status(400).json({ message: "Sender ID is required" });
+    }
 
     // Update messages from senderId to current user that have not yet been seen
-    await Message.updateMany(
+    const result = await Message.updateMany(
       {
         sender: senderId,
         receiver: userId,
@@ -423,6 +430,7 @@ export const markMessagesAsSeen = async (req, res) => {
       { $set: { isRead: true } }
     );
 
+    console.log(`Backend: Updated ${result.modifiedCount} messages as seen.`);
     res.status(200).json({ message: "Messages marked as seen" });
   } catch (error) {
     console.error("Error marking messages as seen:", error);

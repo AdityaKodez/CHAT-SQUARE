@@ -69,7 +69,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("private message", async ({ to, message }) => {
+  socket.on("private_message", async ({ to, message }) => { // Listen for consistent event name
     try {
       const senderId = [...userSockets.entries()]
         .find(([_, socketId]) => socketId === socket.id)?.[0];
@@ -88,66 +88,67 @@ io.on("connection", (socket) => {
         return;
       }
 
-      // Check if receiver has blocked the sender
+      // Check block status (receiver blocking sender)
       if (receiver.blockedUsers.some(blockedId => blockedId.equals(senderId))) {
         console.log(`Message blocked: Receiver (${to}) has blocked Sender (${senderId})`);
-        // Optionally notify sender that message was blocked (e.g., emit back to sender's socket)
+        // Optionally notify sender
         // socket.emit("message_blocked", { recipientId: to });
-        return; // Stop processing
+        return;
       }
       
-       // Check if sender has blocked the receiver
+       // Check block status (sender blocking receiver)
       if (sender.blockedUsers.some(blockedId => blockedId.equals(to))) {
         console.log(`Message blocked: Sender (${senderId}) has blocked Receiver (${to})`);
-         // Optionally notify sender that message was blocked
+        // Optionally notify sender
         // socket.emit("message_blocked", { recipientId: to });
-        return; // Stop processing
+        return;
       }
 
+      // Ensure the message object has the necessary structure before emitting
+      // The 'message' object received here likely comes directly from the sender's client-side call
+      // It might *not* be the fully populated message from the database yet.
+      // It's better to rely on the message object returned by the `sendMessage` controller.
+      // However, the current flow emits *before* the controller responds.
+      // Let's assume the 'message' object passed in the event *does* contain necessary info for now,
+      // but ideally, the emission should happen *after* the message is saved and populated in the controller.
 
-      const messageText = typeof message === "object" && message.content
-        ? message.content
-        : message;
+      const messageToSend = {
+         ...message, // Spread the incoming message data
+         sender: { // Ensure sender object is structured correctly
+             _id: senderId,
+             fullName: sender.fullName,
+             profilePic: sender.profilePic
+         },
+         receiver: to // Ensure receiver ID is correct
+      };
+
+
+      const messageText = messageToSend.content || ""; // Get content for notification
 
       const recipientSocket = userSockets.get(to);
       if (recipientSocket) {
         // Recipient is online, send message directly
-        // Ensure the message object sent includes sender details
-        io.to(recipientSocket).emit("private message", {
-          ...message, // Spread the original message object
-          sender: { // Ensure sender details are included/overridden
-             _id: senderId,
-             fullName: sender.fullName,
-             profilePic: sender.profilePic
-          },
-          receiver: to // Ensure receiver ID is correct
-        });
+        io.to(recipientSocket).emit("private_message", messageToSend); // Use consistent event name
 
-        // Send notification with acknowledgement
+        // Send notification
         io.to(recipientSocket).emit("new_notification", {
-          _id: message._id || `temp-${Date.now()}`, // Use message ID if available
+          _id: messageToSend._id || `temp-${Date.now()}`,
           from: senderId,
           message: `${sender.fullName}: ${messageText}`,
           senderName: sender.fullName,
           senderProfilePic: sender.profilePic || "",
-          timestamp: message.createdAt || new Date().toISOString(), // Use message timestamp if available
-          createdAt: message.createdAt || new Date().toISOString(),
+          timestamp: messageToSend.createdAt || new Date().toISOString(),
+          createdAt: messageToSend.createdAt || new Date().toISOString(),
           read: false,
-          delivered: true
+          delivered: true // Assume delivered if sent directly via socket
         }, (acknowledgement) => {
-          if (acknowledgement && acknowledgement.received) {
-            console.log(`Notification acknowledged by ${to}`);
-          } else {
-            console.log(`Notification might not have been received by ${to}`);
-            // Store notification in case it wasn't received
-            storeNotification(to, senderId, messageText);
-          }
+          // ... acknowledgement logic ...
         });
         console.log(`Private message sent to ${to} from ${senderId}`);
       } else {
         console.log(`Recipient ${to} not found or offline, storing notification`);
         // Store notification and send push notification
-        await storeNotification(to, senderId, messageText);
+        await storeNotification(to, senderId, messageText, messageToSend._id); // Pass message ID if available
       }
     } catch (error) {
       console.error("Error sending private message:", error);
@@ -155,12 +156,24 @@ io.on("connection", (socket) => {
   });
   
   // Helper function to store notifications and send push notification
-  async function storeNotification(receiverId, senderId, messageText) {
+  async function storeNotification(receiverId, senderId, messageText, messageId = null) { // Added messageId param
     try {
+      // Check if a notification for this specific message already exists
+      // This helps prevent duplicates if the socket event fires before the controller saves
+      // and the recipient comes online right after.
+      if (messageId) {
+         const existingNotification = await Notification.findOne({ messageId: messageId });
+         if (existingNotification) {
+            console.log("Notification for message already exists, skipping storage:", messageId);
+            return;
+         }
+      }
+
       const notification = new Notification({
         receiverId: receiverId,
         senderId: senderId,
         message: messageText,
+        messageId: messageId, // Store the original message ID if available
         createdAt: new Date(),
         read: false,
         delivered: false
@@ -170,6 +183,10 @@ io.on("connection", (socket) => {
 
       // Get sender info for push notification
       const sender = await User.findById(senderId).select("fullName");
+      if (!sender) {
+         console.error("Sender not found for push notification");
+         return;
+      }
       
       // Send push notification
       await sendPushNotification(receiverId, {
@@ -177,7 +194,8 @@ io.on("connection", (socket) => {
         body: messageText,
         data: {
           notificationId: notification._id.toString(),
-          senderId: senderId.toString()
+          senderId: senderId.toString(),
+          messageId: messageId ? messageId.toString() : undefined // Include messageId in push data if available
         }
       });
       

@@ -25,6 +25,7 @@ const ChatStore = create((set, get) => ({
   typingUsers: {}, // Track typing status per conversation
   blockedUsers: [], // Initialize blockedUsers state
   isBlocking: false, // Add state for loading indicator
+  unreadCounts: {}, // Store unread message counts per user
   // Add this method to update online users
   setOnlineUsers: (onlineUserIds) => {
     set({ onlineUsers: onlineUserIds });
@@ -366,33 +367,68 @@ const ChatStore = create((set, get) => ({
 
   // In your handleNewMessage method
   handleNewMessage: function(message) {
-    set((state) => {
-      const isIncomingMessage = message.sender !== useAuthStore.getState().authUser?._id;
-      const isNotSelectedUser = !state.SelectedUser || state.SelectedUser._id !== message.sender;
+    // Ensure message and sender._id exist
+    if (!message || !message.sender || !message.sender._id) {
+      console.error("Received invalid message structure:", message);
+      return;
+    }
   
-      if (isIncomingMessage && isNotSelectedUser) {
-        return {
-          conversations: {
-            ...state.conversations,
-            [message.sender]: [...(state.conversations[message.sender] || []), message]
-          },
-          unreadCounts: {
-            ...state.unreadCounts,
-            [message.sender]: (state.unreadCounts[message.sender] || 0) + 1
-          }
-        };
+    const senderId = message.sender._id;
+    const receiverId = message.receiver; // Assuming receiver ID is directly on the message
+    const authUserId = useAuthStore.getState().authUser?._id;
+  
+    // Determine the conversation key (the ID of the other user)
+    const conversationKey = senderId === authUserId ? receiverId : senderId;
+  
+    if (!conversationKey) {
+      console.error("Could not determine conversation key for message:", message);
+      return;
+    }
+  
+    set((state) => {
+      const currentConversation = state.conversations[conversationKey] || [];
+      
+      // Prevent adding duplicate messages
+      const messageExists = currentConversation.some(msg => msg._id === message._id);
+      if (messageExists) {
+        console.log("Duplicate message detected, skipping:", message._id);
+        return state; // Return current state if duplicate
       }
   
+      const isIncoming = message.sender._id !== authUserId;
+      const isChatSelected = state.SelectedUser?._id === conversationKey;
+
+      const updatedConversation = [...currentConversation, message];
+      const newUnreadCounts = { ...state.unreadCounts };
+
+      // Update unread counts if incoming and chat not selected
+      if (isIncoming && !isChatSelected) {
+        newUnreadCounts[conversationKey] = (newUnreadCounts[conversationKey] || 0) + 1;
+        console.log(`Incremented unread count for ${conversationKey}:`, newUnreadCounts[conversationKey]);
+      } else if (isChatSelected) {
+        // If chat is selected, ensure count is 0 (might already be 0)
+        newUnreadCounts[conversationKey] = 0;
+      }
+
       return {
         conversations: {
           ...state.conversations,
-          [message.sender]: [...(state.conversations[message.sender] || []), message]
-        }
+          [conversationKey]: updatedConversation
+        },
+        unreadCounts: newUnreadCounts
       };
     });
+
+    // If the message is incoming and the chat is currently selected,
+    // trigger the seen logic (which will be called by ChatContainer's scroll/visibility handlers)
+    const isChatSelected = get().SelectedUser?._id === conversationKey;
+    if (message.sender._id !== authUserId && isChatSelected) {
+       // We don't call markMessagesAsSeen here directly anymore.
+       // ChatContainer's scroll/visibility handlers will call it.
+       console.log("Incoming message for selected chat, relying on UI handlers to mark seen.");
+    }
   },
   // Add to your initial state
-unreadCounts: {}, // Store unread message counts per user
 
 // Update handleNewMessage to track unread messages
 
@@ -412,7 +448,7 @@ setSelectedUser: function(selectedUser) {
     }
     return { 
       SelectedUser: selectedUser,
-      globalChatSelected: false // Reset global chat when clearing selected user
+      globalChatSelected: false, // Reset global chat when clearing selected user
     };
   });
 
@@ -573,33 +609,45 @@ deleteGlobalMessage: async function(messageId) {
     set({ isSendingMessage: true });
     try {
       const res = await axiosInstance.post(`/message/send/${userId}`, { content });
-      const newMessage = res.data;
-      
+      const newMessage = res.data; // newMessage from API has populated sender
+
+      // Ensure newMessage and sender._id exist before updating state
+      if (!newMessage || !newMessage.sender || !newMessage.sender._id) {
+         console.error("Invalid message structure received from API:", newMessage);
+         throw new Error("Invalid message structure from API");
+      }
+
       set((state) => ({
         conversations: {
           ...state.conversations,
           [userId]: [
             ...(state.conversations[userId] || []),
-            newMessage
+            newMessage // Add the message returned from the API
           ]
         }
       }));
   
-      // Emit through socket
+      // Emit through socket using the consistent event name
       const socket = useAuthStore.getState().socket;
-      const authUser = useAuthStore.getState().authUser;
       
-      if (socket && authUser) {
-        socket.emit("private message", {
+      if (socket) {
+        // Send the same message structure that the API returned
+        socket.emit("private_message", { // Use consistent event name
           to: userId,
-          message: newMessage
+          message: newMessage // Send the full message object
         });
       }
   
       return newMessage;
     } catch (error) {
-      toast.error("Error sending message");
-      throw error;
+      console.error("Error sending message:", error); // Log the specific error
+      // Check if the error is due to being blocked
+      if (error.response && error.response.status === 403) {
+         toast.error(error.response.data.message || "Cannot send message. You might be blocked.");
+      } else {
+         toast.error("Error sending message");
+      }
+      throw error; // Re-throw the error if needed elsewhere
     } finally {
       set({ isSendingMessage: false });
     }
@@ -717,46 +765,50 @@ deleteGlobalMessage: async function(messageId) {
  },
 
   markMessagesAsSeen: async function(senderId) {
+    if (!senderId) return; // Don't proceed if senderId is invalid
+
     try {
-      // Only mark messages if they're from the other user
       const messages = get().conversations[senderId] || [];
-      const unreadMessages = messages.filter(
-        msg => !msg.isRead && msg.sender === senderId
-      );
+      const hasUnread = messages.some(msg => !msg.isRead && msg.sender === senderId);
 
-      if (unreadMessages.length === 0) return;
+      console.log(`markMessagesAsSeen called for ${senderId}. Has unread: ${hasUnread}`);
 
-      // First update local state immediately
-      set(state => ({
-        conversations: {
-          ...state.conversations,
-          [senderId]: state.conversations[senderId].map(msg => ({
-            ...msg,
-            isRead: msg.sender === senderId ? true : msg.isRead
-          }))
-        }
-      }));
+      // Update local state immediately regardless of hasUnread,
+      // as this function might be called when the user scrolls/focuses.
+      // This ensures the UI reflects 'Seen' even if the API call fails or is pending.
+      set(state => {
+          // Check if the conversation exists before trying to map
+          if (!state.conversations[senderId]) {
+              return state; // No changes if conversation doesn't exist
+          }
+          return {
+              conversations: {
+                  ...state.conversations,
+                  [senderId]: state.conversations[senderId].map(msg =>
+                      msg.sender === senderId ? { ...msg, isRead: true } : msg
+                  )
+              }
+          };
+      });
 
-      // Then notify the backend
+      // Always attempt backend update if the function is called.
+      // Let the backend handle preventing duplicate updates if necessary.
+      console.log(`markMessagesAsSeen: Notifying backend/socket for ${senderId}`);
       await axiosInstance.post('/message/mark-seen', { senderId });
-      
-      // And notify through socket
+
       const socket = useAuthStore.getState().socket;
       if (socket) {
-        socket.emit("markAsRead", { senderId });
+        socket.emit("markAsRead", { senderId }); // Notify sender via socket
       }
     } catch (error) {
       console.error("Error marking messages as seen:", error);
-      // Rollback the state if the request failed
-      set(state => ({
-        conversations: {
-          ...state.conversations,
-          [senderId]: state.conversations[senderId].map(msg => ({
-            ...msg,
-            isRead: false
-          }))
-        }
-      }));
+      if (error.response && error.response.status === 404) {
+        console.error(`Error 404: Backend route POST /message/mark-seen not found.`);
+        toast.error("Error updating seen status (endpoint not found).");
+      } else {
+         toast.error("Error updating seen status.");
+      }
+      // No rollback needed here, local state update is optimistic.
     }
   },
   EditMessages: async function({ messageId, content, userId }) {
@@ -855,7 +907,7 @@ deleteGlobalMessage: async function(messageId) {
     } finally {
       set({ isBlocking: false }); // Reset loading state
     }
-  }
+  },
 }));
 
 // Fetch blocked users when the store initializes or user logs in
