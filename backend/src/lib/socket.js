@@ -73,34 +73,65 @@ io.on("connection", (socket) => {
     try {
       const senderId = [...userSockets.entries()]
         .find(([_, socketId]) => socketId === socket.id)?.[0];
-      
+
       if (!senderId) {
-        console.error("Could not identify sender");
+        console.error("Could not identify sender for private message");
         return;
       }
 
-      const sender = await User.findById(senderId).select("fullName");
-      const messageText = typeof message === "object" && message.content
-        ? message.content 
-        : message;
+      // Fetch receiver and sender details including blocked lists
+      const receiver = await User.findById(to).select('blockedUsers');
+      const sender = await User.findById(senderId).select('blockedUsers fullName profilePic'); // Fetch sender details too
+
+      if (!receiver || !sender) {
+        console.error("Sender or Receiver not found");
+        return;
+      }
+
+      // Check if receiver has blocked the sender
+      if (receiver.blockedUsers.some(blockedId => blockedId.equals(senderId))) {
+        console.log(`Message blocked: Receiver (${to}) has blocked Sender (${senderId})`);
+        // Optionally notify sender that message was blocked (e.g., emit back to sender's socket)
+        // socket.emit("message_blocked", { recipientId: to });
+        return; // Stop processing
+      }
       
+       // Check if sender has blocked the receiver
+      if (sender.blockedUsers.some(blockedId => blockedId.equals(to))) {
+        console.log(`Message blocked: Sender (${senderId}) has blocked Receiver (${to})`);
+         // Optionally notify sender that message was blocked
+        // socket.emit("message_blocked", { recipientId: to });
+        return; // Stop processing
+      }
+
+
+      const messageText = typeof message === "object" && message.content
+        ? message.content
+        : message;
+
       const recipientSocket = userSockets.get(to);
       if (recipientSocket) {
         // Recipient is online, send message directly
+        // Ensure the message object sent includes sender details
         io.to(recipientSocket).emit("private message", {
-          from: senderId,
-          message,
+          ...message, // Spread the original message object
+          sender: { // Ensure sender details are included/overridden
+             _id: senderId,
+             fullName: sender.fullName,
+             profilePic: sender.profilePic
+          },
+          receiver: to // Ensure receiver ID is correct
         });
-        
+
         // Send notification with acknowledgement
         io.to(recipientSocket).emit("new_notification", {
-          _id: `temp-${Date.now()}`, // Temporary ID for real-time notifications
+          _id: message._id || `temp-${Date.now()}`, // Use message ID if available
           from: senderId,
           message: `${sender.fullName}: ${messageText}`,
           senderName: sender.fullName,
           senderProfilePic: sender.profilePic || "",
-          timestamp: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
+          timestamp: message.createdAt || new Date().toISOString(), // Use message timestamp if available
+          createdAt: message.createdAt || new Date().toISOString(),
           read: false,
           delivered: true
         }, (acknowledgement) => {
@@ -112,7 +143,7 @@ io.on("connection", (socket) => {
             storeNotification(to, senderId, messageText);
           }
         });
-        console.log(`Notification sent to ${to} from ${senderId}`);
+        console.log(`Private message sent to ${to} from ${senderId}`);
       } else {
         console.log(`Recipient ${to} not found or offline, storing notification`);
         // Store notification and send push notification

@@ -5,11 +5,33 @@ import Notification from "../models/Notification.model.js";
 export const getUserForSidebar = async (req, res) => {
     try {
         const LoggedInUserId = req.user._id;
-        const FilteredUser = await User.find({ _id: { $ne: LoggedInUserId } })
-            .select("username fullName _id timestamps profilePic lastOnline description isVerified") // Include isVerified field
+        // Fetch all users except the logged-in one
+        const allUsers = await User.find({ _id: { $ne: LoggedInUserId } })
+            // Select only existing fields. Remove 'username' and 'timestamps'.
+            // 'createdAt' and 'updatedAt' are added automatically by {timestamps:true} but usually not selected directly unless needed.
+            .select("fullName _id profilePic lastOnline description isVerified blockedUsers createdAt updatedAt") 
+            .lean(); // Use lean for performance
+
+        // Check block status for each user relative to the logged-in user
+        const FilteredUser = allUsers.map(user => {
+            // Check if the current user in the loop (user) has blocked the logged-in user (LoggedInUserId)
+            // Ensure blockedUsers exists before trying to use .some()
+            const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
+                ? user.blockedUsers.some(blockedId => blockedId.equals(LoggedInUserId))
+                : false;
+            
+            // Remove blockedUsers array from the final output for privacy/security
+            const { blockedUsers, ...userWithoutBlockedList } = user; 
+
+            return {
+                ...userWithoutBlockedList,
+                isBlockedViewer 
+            };
+        });
+
         res.status(200).json(FilteredUser);
     } catch (error) {
-        console.log(error);
+        console.log("Error in getUserForSidebar:", error); // Improved logging
         res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -153,14 +175,34 @@ export const getMessages = async (req, res) => {
 export const sendMessage = async (req, res) => {
     try {
         const { content, fileUrl } = req.body;
-        const myId = req.user._id;
-        const { userId: receiver } = req.params;
+        const senderId = req.user._id; // Renamed for clarity
+        const { userId: receiverId } = req.params; // Renamed for clarity
 
-        const message = new Message({ 
-            sender: myId, 
-            receiver, 
-            content 
+        // Fetch receiver's document to check their blocked list
+        const receiver = await User.findById(receiverId).select('blockedUsers');
+        if (!receiver) {
+            return res.status(404).json({ message: "Receiver not found" });
+        }
+
+        // Check if the receiver has blocked the sender
+        if (receiver.blockedUsers.some(blockedId => blockedId.equals(senderId))) {
+            return res.status(403).json({ message: "You cannot send messages to this user." });
+        }
+        
+        // Check if the sender has blocked the receiver (optional but good practice)
+        const sender = await User.findById(senderId).select('blockedUsers');
+         if (sender.blockedUsers.some(blockedId => blockedId.equals(receiverId))) {
+            return res.status(403).json({ message: "Unblock the user to send messages." });
+        }
+
+
+        const message = new Message({
+            sender: senderId,
+            receiver: receiverId,
+            content
         });
+        // ... rest of the code for saving message and handling fileUrl ...
+
         await message.save();
 
         if (fileUrl) {
@@ -169,10 +211,16 @@ export const sendMessage = async (req, res) => {
             await message.save();
         }
 
-        // Return the created message instead of a success message
-        res.status(201).json(message);
+        // Populate sender details before sending back
+        const populatedMessage = await Message.findById(message._id)
+            .populate('sender', 'fullName profilePic _id') // Populate sender info
+            .lean(); // Use lean for performance
+
+        // Emit socket event (handled in socket.js, but good to be aware)
+
+        res.status(201).json(populatedMessage); // Return the populated message
     } catch (error) {
-        console.log("ERROR IN MESSAGE CONTROLLER", error);
+        console.log("ERROR IN sendMessage CONTROLLER", error); // Corrected log message
         res.status(500).json({ message: "Internal server error" });
     }
 };

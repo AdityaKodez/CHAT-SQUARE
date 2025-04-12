@@ -23,8 +23,8 @@ const ChatStore = create((set, get) => ({
   isMessageLoading: false,
   isSendingMessage: false,
   typingUsers: {}, // Track typing status per conversation
-
-
+  blockedUsers: [], // Initialize blockedUsers state
+  isBlocking: false, // Add state for loading indicator
   // Add this method to update online users
   setOnlineUsers: (onlineUserIds) => {
     set({ onlineUsers: onlineUserIds });
@@ -51,7 +51,9 @@ const ChatStore = create((set, get) => ({
          .off("typing")
          .off("private_message")
          .off("new_notification")
-         .off("message_edited"); // Add this
+         .off("message_edited") // Add this
+         .off("user_blocked")
+         .off("user_unblocked"); // Remove previous listeners
     
     // Listen for global messages
     socket.on("global_message", (message) => {
@@ -201,6 +203,43 @@ const ChatStore = create((set, get) => ({
         });
         return newState;
       });
+    });
+
+    socket.on("user_blocked", ({ blockerId, blockedUserId }) => {
+      const authUserId = useAuthStore.getState().authUser?._id;
+      // If the current user is the one being blocked
+      if (blockedUserId === authUserId) {
+          // Potentially update the SelectedUser if they are the blocker
+          const selectedUser = get().SelectedUser;
+          if (selectedUser && selectedUser._id === blockerId) {
+               set({ SelectedUser: { ...selectedUser, isBlockedViewer: true } });
+          }
+          toast.info(`You have been blocked by ${blockerId}`); // Adjust message as needed
+      }
+      // If the current user is the blocker
+      else if (blockerId === authUserId) {
+           set((state) => ({
+              blockedUsers: [...new Set([...state.blockedUsers, blockedUserId])]
+           }));
+      }
+    });
+
+    socket.on("user_unblocked", ({ blockerId, blockedUserId }) => {
+      const authUserId = useAuthStore.getState().authUser?._id;
+       // If the current user was the one blocked
+      if (blockedUserId === authUserId) {
+           const selectedUser = get().SelectedUser;
+           if (selectedUser && selectedUser._id === blockerId) {
+               set({ SelectedUser: { ...selectedUser, isBlockedViewer: false } });
+           }
+           toast.info(`You have been unblocked by ${blockerId}`); // Adjust message
+      }
+       // If the current user was the blocker
+      else if (blockerId === authUserId) {
+           set((state) => ({
+              blockedUsers: state.blockedUsers.filter(id => id !== blockedUserId)
+           }));
+      }
     });
   },
   // Add this method to format last online time
@@ -755,7 +794,72 @@ deleteGlobalMessage: async function(messageId) {
       toast.error("Error editing message");
       throw error;
     }
+  },
+
+  // Function to fetch initial blocked users (call this on app load/login)
+  fetchBlockedUsers: async () => {
+    try {
+      // Assuming your backend has an endpoint like /auth/blocked-users
+      const res = await axiosInstance.get("/auth/blocked-users");
+      set({ blockedUsers: res.data.blockedUsers || [] });
+    } catch (error) {
+      console.error("Error fetching blocked users:", error);
+      // Handle error appropriately, maybe set to empty array
+      set({ blockedUsers: [] });
+    }
+  },
+
+  // Function to block a user
+  blockUser: async (userIdToBlock) => {
+    set({ isBlocking: true }); // Set loading state
+    try {
+      await axiosInstance.post("/auth/block-user", { blockedUserId: userIdToBlock });
+      set((state) => ({
+        blockedUsers: [...state.blockedUsers, userIdToBlock],
+      }));
+      toast.success("User blocked successfully");
+      // Optionally, update the SelectedUser state if needed
+      if (get().SelectedUser?._id === userIdToBlock) {
+        set((state) => ({
+          SelectedUser: { ...state.SelectedUser, isBlockedViewer: true } // Assuming this property exists
+        }));
+      }
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      toast.error(error.response?.data?.message || "Failed to block user");
+      throw error; // Re-throw error for component handling
+    } finally {
+      set({ isBlocking: false }); // Reset loading state
+    }
+  },
+
+  // Function to unblock a user
+  unblockUser: async (userIdToUnblock) => {
+    set({ isBlocking: true }); // Set loading state
+    try {
+      await axiosInstance.post("/auth/unblock-user", { blockedUserId: userIdToUnblock });
+      set((state) => ({
+        blockedUsers: state.blockedUsers.filter(id => id !== userIdToUnblock),
+      }));
+      toast.success("User unblocked successfully");
+       // Optionally, update the SelectedUser state if needed
+       if (get().SelectedUser?._id === userIdToUnblock) {
+        set((state) => ({
+          SelectedUser: { ...state.SelectedUser, isBlockedViewer: false } // Assuming this property exists
+        }));
+      }
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      toast.error(error.response?.data?.message || "Failed to unblock user");
+      throw error; // Re-throw error for component handling
+    } finally {
+      set({ isBlocking: false }); // Reset loading state
+    }
   }
 }));
+
+// Fetch blocked users when the store initializes or user logs in
+// You might need to call this explicitly after login in your auth flow
+ChatStore.getState().fetchBlockedUsers();
 
 export default ChatStore;

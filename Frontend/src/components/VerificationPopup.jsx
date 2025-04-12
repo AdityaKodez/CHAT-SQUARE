@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 
 const VerificationPopup = () => {
   const { showVerification, closeVerification } = useVerification();
-  const { verifyEmail, verifyOTP } = useAuthStore();
+  const { verifyOTP } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState("pending");
   const [otp, setOtp] = useState("");

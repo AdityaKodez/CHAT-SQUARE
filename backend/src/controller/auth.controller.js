@@ -406,3 +406,75 @@ export const verifyOTP = async (req, res) => {
     });
   }
 };
+
+export const blockUser = async (req, res) => {
+  try {
+    const { blockedUserId } = req.body;
+    const userId = req.user._id;
+
+    if (userId.toString() === blockedUserId) {
+      return res.status(400).json({ message: "You cannot block yourself" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { blockedUsers: blockedUserId } },
+      { new: true }
+    );
+
+    // Get socket instance
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('user_blocked', { 
+        blockerId: userId, 
+        blockedUserId 
+      });
+    }
+
+    res.status(200).json({ message: "User blocked successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error blocking user" });
+  }
+};
+
+export const unblockUser = async (req, res) => {
+  try {
+    const { blockedUserId } = req.body;
+    const userId = req.user._id;
+
+    await User.findByIdAndUpdate(
+      userId,
+      { $pull: { blockedUsers: blockedUserId } }
+    );
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('user_unblocked', { 
+        blockerId: userId, 
+        blockedUserId 
+      });
+    }
+
+    res.status(200).json({ message: "User unblocked successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error unblocking user" });
+  }
+};
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId)
+      .select("blockedUsers")
+      .populate("blockedUsers", "fullName email profilePic");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json(user.blockedUsers);
+  } catch (error) {
+    console.error("Error in getBlockedUsers:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
