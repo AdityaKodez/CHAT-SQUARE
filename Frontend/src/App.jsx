@@ -18,6 +18,7 @@ import { getNotificationPermission } from "./lib/browserNotifications"; // Impor
 import PageTransition from "./components/PageTransition";
 import { VerificationProvider } from "./context/VerificationContext";
 import VerificationPopup from "./components/VerificationPopup"; // Import this
+import PrivacyPolicy from "./Pages/PrivacyPolicy";
 
 const App = () => {
   const { theme } = useTheme();
@@ -238,6 +239,14 @@ const App = () => {
             element={
               <PageTransition>
                 <SettingsPage />
+              </PageTransition>
+            }
+          />
+          <Route 
+            path="/privacy-policy" 
+            element={
+              <PageTransition>
+                <PrivacyPolicy />
               </PageTransition>
             }
           />

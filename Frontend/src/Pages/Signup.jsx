@@ -223,13 +223,16 @@ const Signup = () => {
                   "Create Account"
                 )}
               </button>
-              <div className="flex gap-3">
-                <div>
-                  <p className="font-work-sans opacity-55">Already have an account?{""}</p>
+              <div className="text-center text-sm mt-4 space-y-1">
+                <div className="flex gap-1 justify-center">
+                  <p className="font-work-sans opacity-55">Already have an account?</p>
+                  <Link to="/login" className="link text-blue-400 no-underline font-work-sans hover:underline">
+                    Sign in
+                  </Link>
                 </div>
-                <Link to="/login" className="link text-blue-400 no-underline font-work-sans hover:underline">
-                  Sign in
-                </Link>
+                <p className="text-xs text-base-content/50 font-work-sans">
+                  By signing up, you agree to our <Link to="/privacy-policy" className="link link-hover text-blue-400">Privacy Policy</Link>.
+                </p>
               </div>
             </div>
           </form>

@@ -259,9 +259,8 @@ const NavBar = () => {
                     <motion.div variants={menuItemVariants}>
                       <button
                         onClick={() => {
-                          if (!isLoggingOut) { // Prevent multiple clicks while logging out
+                          if (!isLoggingOut) { 
                             logout()
-                            setIsProfileMenuOpen(false)
                           }
                         }}
                         disabled={isLoggingOut} // Disable button while logging out

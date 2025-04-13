@@ -66,12 +66,10 @@ const NotificationService = () => {
   // Handle socket notifications
   useEffect(() => {
     if (!socket || !authUser) {
-      console.log('Socket or user not available, skipping notification setup');
       return;
     }
 
     const handleNewNotification = (notification) => {
-      console.log('Received notification:', notification);
       
       // Process message content - handle both string and object formats
       let messageContent = notification.message;
@@ -97,7 +95,6 @@ const NotificationService = () => {
       if (document.hidden) {
         // Double-check permission right before showing notification
         const permission = getNotificationPermission();
-        console.log('Current notification permission:', permission);
         
         if (permission === 'granted') {
           try {
@@ -115,7 +112,6 @@ const NotificationService = () => {
             };
             
             const browserNotification = showBrowserNotification(notificationTitle, notificationOptions);
-            console.log('Browser notification created:', !!browserNotification);
           } catch (error) {
             console.error('Error showing browser notification:', error);
           }
@@ -142,7 +138,6 @@ const NotificationService = () => {
         if (authUser) {
           await useNotificationStore.getState().fetchUnreadNotifications();
         } else {
-          console.log('User not authenticated, skipping notification fetch');
         }
       } catch (error) {
         console.error('Failed to fetch initial notifications:', error);

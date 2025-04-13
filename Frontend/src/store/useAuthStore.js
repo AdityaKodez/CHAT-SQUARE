@@ -18,10 +18,11 @@ export const useAuthStore = create((set, get) => ({
 
   // Add the missing checkAuth function
   checkAuth: async function() {
+    set({isCheckingAuth: true});
     try {
-      const res = await axiosInstance.get("/auth/check");   
+      const res = await axiosInstance.get("/auth/check");
       set({authUser: res.data});
-      get().connectSocket();
+      get().connectSocket(); // Connect socket after confirming auth
     } catch (error) {
       console.log("error in check auth", error);
       set({authUser: null});  
@@ -79,7 +80,6 @@ export const useAuthStore = create((set, get) => ({
       });
       
       newSocket.on("connect", () => {
-        console.log("Connected to socket server");
         // Emit the setup event
         newSocket.emit("setup", authUser._id);
         set({ socket: newSocket });
@@ -93,7 +93,6 @@ export const useAuthStore = create((set, get) => ({
       }, 25000); // Ping every 25 seconds
   
       newSocket.on("disconnect", () => {
-        console.log("Disconnected from socket server");
         // Don't set socket to null here, let it reconnect
         // set({ socket: null });
         
@@ -115,11 +114,11 @@ export const useAuthStore = create((set, get) => ({
       });
 
       newSocket.on("reconnect_attempt", (attempt) => {
-        console.log(`Socket reconnection attempt ${attempt}`);
+        // Optionally log reconnection attempts if needed for debugging
+        // console.log(`Socket reconnection attempt ${attempt}`);
       });
 
       newSocket.on("reconnect", () => {
-        console.log("Socket reconnected successfully");
         // Re-emit setup event after reconnection
         if (authUser) {
           newSocket.emit("setup", authUser._id);
@@ -153,7 +152,6 @@ export const useAuthStore = create((set, get) => ({
       // Update lastOnline first before disconnecting
       try {
         await get().updateLastOnline();
-        console.log("Last online timestamp updated");
       } catch (error) {
         console.error("Error updating last online timestamp:", error);
       }
@@ -188,7 +186,7 @@ export const useAuthStore = create((set, get) => ({
   
       set({authUser: res.data})
     } catch (error) {
-      console.error("Update profile error:", error);
+      console.error("Error updating profile:", error);
       toast.error(error.response?.data?.message || "Update profile failed");
       throw error; // Re-throw to be caught by the component
     } finally {
@@ -199,7 +197,6 @@ export const useAuthStore = create((set, get) => ({
   updateLastOnline: async function() {
     try {
       const response = await axiosInstance.post("/auth/lastOnline");
-      console.log("Last online updated successfully:", response.data);
       return response.data;
     } catch (error) {
       console.error("Error updating last online:", error);
@@ -231,8 +228,6 @@ const email = get().authUser?.email;
         return false;
       }
       
-      console.log('Sending verification request:', { email, otp });
-      
       const response = await axiosInstance.post("/auth/verify-otp", { 
         email: email.trim(),
         otp: otp.toString().trim()
@@ -251,7 +246,7 @@ const email = get().authUser?.email;
       return false;
       
     } catch (error) {
-      console.error("Verify OTP error:", error.response || error);
+      console.error("Error verifying OTP:", error.response || error);
       return false;
     }
   },

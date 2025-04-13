@@ -130,6 +130,9 @@ const Login = () => {
           <p className="text-center font-work-sans text-sm text-gray-500">
             Don't have an account? <Link to="/signup" className="text-blue-500  hover:underline">Sign up</Link>
           </p>
+          <p className="text-center text-xs text-base-content/50 font-work-sans">
+            By signing in, you agree to our <Link to="/privacy-policy" className="link link-hover text-blue-400">Privacy Policy</Link>.
+          </p>
         </div>
         <div className={!mobile ? "flex w-full p-5 overflow-hidden" : "hidden"}>
           <AuthImagePattern
