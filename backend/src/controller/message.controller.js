@@ -42,111 +42,78 @@ export const getUserForSidebar = async (req, res) => {
         console.log(`🟢 Online user IDs:`, onlineUserIds);
         console.log(`🔍 LoggedInUserId:`, LoggedInUserId.toString());
         
-        // Fetch paginated users with advanced sorting using aggregation pipeline
-        const allUsers = await User.aggregate([
-            // Match users excluding the logged-in user
-            { $match: { _id: { $ne: LoggedInUserId } } },
-            
-            // Add computed fields for sorting
+        // Convert online user IDs to strings for comparison
+        const onlineUserIdsAsStrings = onlineUserIds.map(id => id.toString());
+        console.log(`🔄 Online user IDs as strings:`, onlineUserIdsAsStrings);
+        
+        // SIMPLIFIED APPROACH: Get all users first, then sort with JavaScript
+        const allUsersFromDB = await User.find(
+            { _id: { $ne: LoggedInUserId } },
             {
-                $addFields: {
-                    // Check if user is currently online
-                    isOnline: {
-                        $in: [{ $toString: "$_id" }, onlineUserIds]
-                    },
-                    hasGoldenTick: {
-                        $and: [
-                            { $eq: ["$isVerified", true] },
-                            { $eq: ["$fullName", "Faker"] }
-                        ]
-                    },
-                    // Updated sort priority: online status comes first
-                    sortPriority: {
-                        $cond: {
-                            if: { $eq: ["$isOnline", false] },
-                            then: {
-                                $cond: {
-                                    if: {
-                                        $and: [
-                                            { $eq: ["$isVerified", true] },
-                                            { $eq: ["$fullName", "Faker"] }
-                                        ]
-                                    },
-                                    then: 10,  // Offline golden tick users
-                                    else: {
-                                        $cond: {
-                                            if: { $eq: ["$isVerified", true] },
-                                            then: 11,  // Offline verified users
-                                            else: 12   // Offline non-verified users
-                                        }
-                                    }
-                                }
-                            },
-                            else: {
-                                $cond: {
-                                    if: {
-                                        $and: [
-                                            { $eq: ["$isVerified", true] },
-                                            { $eq: ["$fullName", "Faker"] }
-                                        ]
-                                    },
-                                    then: 0,  // Online golden tick users (highest priority)
-                                    else: {
-                                        $cond: {
-                                            if: { $eq: ["$isVerified", true] },
-                                            then: 1,  // Online verified users
-                                            else: 2   // Online non-verified users
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                fullName: 1,
+                _id: 1,
+                profilePic: 1,
+                lastOnline: 1,
+                description: 1,
+                isVerified: 1,
+                blockedUsers: 1,
+                createdAt: 1,
+                updatedAt: 1
+            }
+        ).populate({
+            path: 'blockedUsers',
+            select: 'fullName profilePic'
+        }).lean();
+        
+        console.log(`📋 Found ${allUsersFromDB.length} total users from DB`);
+        
+        // Add online status and priority using JavaScript
+        const usersWithOnlineStatus = allUsersFromDB.map(user => {
+            const userIdString = user._id.toString();
+            const isOnline = onlineUserIdsAsStrings.includes(userIdString);
+            const hasGoldenTick = user.isVerified && user.fullName === "Faker";
+            
+            let sortPriority;
+            if (isOnline) {
+                if (hasGoldenTick) {
+                    sortPriority = 0; // Online golden tick users
+                } else if (user.isVerified) {
+                    sortPriority = 1; // Online verified users  
+                } else {
+                    sortPriority = 2; // Online non-verified users
                 }
-            },
-            
-            // Sort by priority (online users first), then alphabetically
-            {
-                $sort: {
-                    sortPriority: 1,        // Online users get priority
-                    fullName: 1             // Then alphabetically
-                }
-            },
-            
-            // Skip and limit for pagination
-            { $skip: skip },
-            { $limit: limit },
-            
-            // Lookup blocked users
-            {
-                $lookup: {
-                    from: "users",
-                    localField: "blockedUsers",
-                    foreignField: "_id",
-                    as: "blockedUsers",
-                    pipeline: [
-                        { $project: { fullName: 1, profilePic: 1 } }
-                    ]
-                }
-            },
-            
-            // Select only needed fields
-            {
-                $project: {
-                    fullName: 1,
-                    _id: 1,
-                    profilePic: 1,
-                    lastOnline: 1,
-                    description: 1,
-                    isVerified: 1,
-                    blockedUsers: 1,
-                    createdAt: 1,
-                    updatedAt: 1,
-                    hasGoldenTick: 1,
-                    isOnline: 1
+            } else {
+                if (hasGoldenTick) {
+                    sortPriority = 10; // Offline golden tick users
+                } else if (user.isVerified) {
+                    sortPriority = 11; // Offline verified users
+                } else {
+                    sortPriority = 12; // Offline non-verified users
                 }
             }
-        ]);
+            
+            return {
+                ...user,
+                isOnline,
+                hasGoldenTick,
+                sortPriority
+            };
+        });
+        
+        console.log(`🔄 Added online status to all users`);
+        
+        // Sort users by priority, then by name
+        const sortedUsers = usersWithOnlineStatus.sort((a, b) => {
+            if (a.sortPriority !== b.sortPriority) {
+                return a.sortPriority - b.sortPriority;
+            }
+            return a.fullName.localeCompare(b.fullName);
+        });
+        
+        console.log(`🔄 Sorted users by priority`);
+        
+        // Apply pagination after sorting
+        const allUsers = sortedUsers.slice(skip, skip + limit);
 
         // DEBUG: Log aggregation results
         console.log(`📋 Aggregation results (${allUsers.length} users):`);
