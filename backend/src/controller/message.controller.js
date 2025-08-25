@@ -10,17 +10,20 @@ export const getUserForSidebar = async (req, res) => {
         const skip = parseInt(req.query.skip) || 0;
         const limit = parseInt(req.query.limit) || 10;
 
-        // Create cache key that includes online status timestamp for better cache busting
-        const onlineUsers = getOnlineUsers();
-        const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
-        const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
+        // TEMPORARY: Disable cache to debug online users sorting
+        // const onlineUsers = getOnlineUsers();
+        // const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
+        // const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
         
-        // Try to get from cache first - reduced cache time due to online status dependency
-        const cachedData = cache.get(cacheKey);
-        if (cachedData) {
-            console.log(`Cache hit for key: ${cacheKey}`);
-            return res.status(200).json(cachedData);
-        }
+        // // Try to get from cache first - reduced cache time due to online status dependency
+        // const cachedData = cache.get(cacheKey);
+        // if (cachedData) {
+        //     console.log(`Cache hit for key: ${cacheKey}`);
+        //     return res.status(200).json(cachedData);
+        // }
+        
+        console.log('🔥 DEBUGGING: Cache disabled for online users sorting');
+        const cacheKey = 'disabled'; // Placeholder
 
         console.log(`Cache miss for key: ${cacheKey}, fetching from database`);
 
@@ -35,7 +38,9 @@ export const getUserForSidebar = async (req, res) => {
 
         // Get currently online users from socket
         const onlineUserIds = getOnlineUsers();
-        console.log(`Online users: ${onlineUserIds.length}`);
+        console.log(`🟢 Online users count: ${onlineUserIds.length}`);
+        console.log(`🟢 Online user IDs:`, onlineUserIds);
+        console.log(`🔍 LoggedInUserId:`, LoggedInUserId.toString());
         
         // Fetch paginated users with advanced sorting using aggregation pipeline
         const allUsers = await User.aggregate([
@@ -142,6 +147,12 @@ export const getUserForSidebar = async (req, res) => {
                 }
             }
         ]);
+
+        // DEBUG: Log aggregation results
+        console.log(`📋 Aggregation results (${allUsers.length} users):`);
+        allUsers.forEach((user, index) => {
+            console.log(`${index + 1}. ${user.fullName} - Online: ${user.isOnline} - Priority: ${user.sortPriority || 'undefined'}`);
+        });
 
         const FilteredUser = allUsers.map(user => {
             const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
