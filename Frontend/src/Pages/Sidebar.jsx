@@ -84,7 +84,7 @@ const Sidebar = () => {
     getUsers();
   }, [getUsers]);
 
-  // Filter and sort users based on online status
+  // Filter and sort users with priority for golden tick users
   const sortedUsers = useMemo(() => {
     if (!users) return [];
     
@@ -94,13 +94,28 @@ const Sidebar = () => {
       return true;
     });
 
-    // Sort users - online users first
+    // Sort users with priority: Golden tick users first, then online users, then offline users
     return filtered.sort((a, b) => {
+      // Check if users have golden ticks (verified and fullName === "Faker")
+      const aHasGoldenTick = a.isVerified && a.fullName === "Faker";
+      const bHasGoldenTick = b.isVerified && b.fullName === "Faker";
+      
+      // Priority 1: Golden tick users always come first
+      if (aHasGoldenTick && !bHasGoldenTick) return -1;
+      if (!aHasGoldenTick && bHasGoldenTick) return 1;
+      
+      // Priority 2: If both have or don't have golden ticks, sort by online status
       const aIsOnline = onlineUsers.includes(a._id);
       const bIsOnline = onlineUsers.includes(b._id);
       if (aIsOnline && !bIsOnline) return -1;
       if (!aIsOnline && bIsOnline) return 1;
-      return 0;
+      
+      // Priority 3: If same online status, sort by verification status
+      if (a.isVerified && !b.isVerified) return -1;
+      if (!a.isVerified && b.isVerified) return 1;
+      
+      // Priority 4: If all else equal, sort alphabetically by name
+      return a.fullName.localeCompare(b.fullName);
     });
   }, [users, showOnlineOnly, onlineUsers, authUser]);
 

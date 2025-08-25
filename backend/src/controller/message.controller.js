@@ -30,26 +30,83 @@ export const getUserForSidebar = async (req, res) => {
             cache.set(totalUsersCacheKey, totalUsers, 2 * 60 * 1000); // Cache for 2 minutes
         }
 
-        // Fetch paginated users with optimized query
-        const allUsers = await User.find(
-            { _id: { $ne: LoggedInUserId } },
+        // Fetch paginated users with advanced sorting using aggregation pipeline
+        const allUsers = await User.aggregate([
+            // Match users excluding the logged-in user
+            { $match: { _id: { $ne: LoggedInUserId } } },
+            
+            // Add computed field for golden tick priority
             {
-                fullName: 1,
-                _id: 1,
-                profilePic: 1,
-                lastOnline: 1,
-                description: 1,
-                isVerified: 1,
-                blockedUsers: 1,
-                createdAt: 1,
-                updatedAt: 1
+                $addFields: {
+                    hasGoldenTick: {
+                        $and: [
+                            { $eq: ["$isVerified", true] },
+                            { $eq: ["$fullName", "Faker"] }
+                        ]
+                    },
+                    sortPriority: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $eq: ["$isVerified", true] },
+                                    { $eq: ["$fullName", "Faker"] }
+                                ]
+                            },
+                            then: 0,  // Golden tick users get highest priority (0)
+                            else: {
+                                $cond: {
+                                    if: { $eq: ["$isVerified", true] },
+                                    then: 1,  // Other verified users get second priority (1)
+                                    else: 2   // Non-verified users get lowest priority (2)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            
+            // Sort by priority, then online status (lastOnline), then alphabetically
+            {
+                $sort: {
+                    sortPriority: 1,        // Golden tick users first
+                    lastOnline: -1,         // Then by last online (most recent first)
+                    fullName: 1             // Then alphabetically
+                }
+            },
+            
+            // Skip and limit for pagination
+            { $skip: skip },
+            { $limit: limit },
+            
+            // Lookup blocked users
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "blockedUsers",
+                    foreignField: "_id",
+                    as: "blockedUsers",
+                    pipeline: [
+                        { $project: { fullName: 1, profilePic: 1 } }
+                    ]
+                }
+            },
+            
+            // Select only needed fields
+            {
+                $project: {
+                    fullName: 1,
+                    _id: 1,
+                    profilePic: 1,
+                    lastOnline: 1,
+                    description: 1,
+                    isVerified: 1,
+                    blockedUsers: 1,
+                    createdAt: 1,
+                    updatedAt: 1,
+                    hasGoldenTick: 1
+                }
             }
-        )
-        .populate("blockedUsers", "fullName profilePic")
-        .skip(skip)
-        .limit(limit)
-        .sort({ lastOnline: -1 })
-        .lean({ virtuals: false }); // Disable virtuals for better performance
+        ]);
 
         const FilteredUser = allUsers.map(user => {
             const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
