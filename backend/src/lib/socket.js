@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 import Notification from "../models/Notification.model.js";
 import { sendPushNotification } from "./pushNotification.js";
 import Message from "../models/message.model.js";
+import { invalidateAllUserCaches } from "./userCache.js";
 const app = express();
 const server = http.createServer(app);
 
@@ -32,6 +33,10 @@ io.on("connection", (socket) => {
     userSockets.set(userId, socket.id);
     socket.join(userId);
     console.log(`User ${userId} setup complete`);
+    
+    // Invalidate user caches since online status has changed
+    invalidateAllUserCaches();
+    
     broadcastOnlineUsers();
     
     // Deliver any stored notifications when user comes online
@@ -232,6 +237,10 @@ io.on("connection", (socket) => {
         } catch (error) {
           console.error(`Error updating last online time for user ${userId}:`, error);
         }
+        
+        // Invalidate user caches since online status has changed
+        invalidateAllUserCaches();
+        
         broadcastOnlineUsers();
         break;
       }
@@ -307,5 +316,10 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+// Function to get currently online users
+export const getOnlineUsers = () => {
+  return Array.from(userSockets.keys());
+};
 
 export { io, app, server };

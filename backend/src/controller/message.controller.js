@@ -3,16 +3,19 @@ import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import Notification from "../models/Notification.model.js";
 import cache from "../lib/cache.js";
+import { getOnlineUsers } from "../lib/socket.js";
 export const getUserForSidebar = async (req, res) => {
     try {
         const LoggedInUserId = req.user._id;
         const skip = parseInt(req.query.skip) || 0;
         const limit = parseInt(req.query.limit) || 10;
 
-        // Create cache key
-        const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}`;
+        // Create cache key that includes online status timestamp for better cache busting
+        const onlineUsers = getOnlineUsers();
+        const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
+        const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
         
-        // Try to get from cache first
+        // Try to get from cache first - reduced cache time due to online status dependency
         const cachedData = cache.get(cacheKey);
         if (cachedData) {
             console.log(`Cache hit for key: ${cacheKey}`);
@@ -30,34 +33,66 @@ export const getUserForSidebar = async (req, res) => {
             cache.set(totalUsersCacheKey, totalUsers, 2 * 60 * 1000); // Cache for 2 minutes
         }
 
+        // Get currently online users from socket
+        const onlineUserIds = getOnlineUsers();
+        console.log(`Online users: ${onlineUserIds.length}`);
+        
         // Fetch paginated users with advanced sorting using aggregation pipeline
         const allUsers = await User.aggregate([
             // Match users excluding the logged-in user
             { $match: { _id: { $ne: LoggedInUserId } } },
             
-            // Add computed field for golden tick priority
+            // Add computed fields for sorting
             {
                 $addFields: {
+                    // Check if user is currently online
+                    isOnline: {
+                        $in: [{ $toString: "$_id" }, onlineUserIds]
+                    },
                     hasGoldenTick: {
                         $and: [
                             { $eq: ["$isVerified", true] },
                             { $eq: ["$fullName", "Faker"] }
                         ]
                     },
+                    // Updated sort priority: online status comes first
                     sortPriority: {
                         $cond: {
-                            if: {
-                                $and: [
-                                    { $eq: ["$isVerified", true] },
-                                    { $eq: ["$fullName", "Faker"] }
-                                ]
+                            if: { $eq: ["$isOnline", false] },
+                            then: {
+                                $cond: {
+                                    if: {
+                                        $and: [
+                                            { $eq: ["$isVerified", true] },
+                                            { $eq: ["$fullName", "Faker"] }
+                                        ]
+                                    },
+                                    then: 10,  // Offline golden tick users
+                                    else: {
+                                        $cond: {
+                                            if: { $eq: ["$isVerified", true] },
+                                            then: 11,  // Offline verified users
+                                            else: 12   // Offline non-verified users
+                                        }
+                                    }
+                                }
                             },
-                            then: 0,  // Golden tick users get highest priority (0)
                             else: {
                                 $cond: {
-                                    if: { $eq: ["$isVerified", true] },
-                                    then: 1,  // Other verified users get second priority (1)
-                                    else: 2   // Non-verified users get lowest priority (2)
+                                    if: {
+                                        $and: [
+                                            { $eq: ["$isVerified", true] },
+                                            { $eq: ["$fullName", "Faker"] }
+                                        ]
+                                    },
+                                    then: 0,  // Online golden tick users (highest priority)
+                                    else: {
+                                        $cond: {
+                                            if: { $eq: ["$isVerified", true] },
+                                            then: 1,  // Online verified users
+                                            else: 2   // Online non-verified users
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -65,11 +100,10 @@ export const getUserForSidebar = async (req, res) => {
                 }
             },
             
-            // Sort by priority, then online status (lastOnline), then alphabetically
+            // Sort by priority (online users first), then alphabetically
             {
                 $sort: {
-                    sortPriority: 1,        // Golden tick users first
-                    lastOnline: -1,         // Then by last online (most recent first)
+                    sortPriority: 1,        // Online users get priority
                     fullName: 1             // Then alphabetically
                 }
             },
@@ -103,7 +137,8 @@ export const getUserForSidebar = async (req, res) => {
                     blockedUsers: 1,
                     createdAt: 1,
                     updatedAt: 1,
-                    hasGoldenTick: 1
+                    hasGoldenTick: 1,
+                    isOnline: 1
                 }
             }
         ]);
@@ -133,8 +168,8 @@ export const getUserForSidebar = async (req, res) => {
             }
         };
 
-        // Cache the response for 3 minutes
-        cache.set(cacheKey, responseData, 3 * 60 * 1000);
+        // Cache the response for 30 seconds due to real-time online status
+        cache.set(cacheKey, responseData, 30 * 1000);
 
         res.status(200).json(responseData);
 
