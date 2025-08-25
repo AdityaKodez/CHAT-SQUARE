@@ -26,15 +26,12 @@ io.on("connection", (socket) => {
   const broadcastOnlineUsers = () => {
     const onlineUsers = Array.from(userSockets.keys());
     io.emit("online-users", onlineUsers);
-    console.log("Broadcasting online users:", onlineUsers);
   };
 
   socket.on("setup", async (userId) => {
     userSockets.set(userId, socket.id);
     socket.join(userId);
-    console.log(`🟢 User ${userId} setup complete - Socket ID: ${socket.id}`);
-    console.log(`🔢 Total online users now: ${userSockets.size}`);
-    console.log(`📝 Online users list:`, Array.from(userSockets.keys()));
+    console.log(`User ${userId} connected`);
     
     // Invalidate user caches since online status has changed
     invalidateAllUserCaches();

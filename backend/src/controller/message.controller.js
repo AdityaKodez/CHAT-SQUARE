@@ -10,23 +10,17 @@ export const getUserForSidebar = async (req, res) => {
         const skip = parseInt(req.query.skip) || 0;
         const limit = parseInt(req.query.limit) || 10;
 
-        // TEMPORARY: Disable cache to debug online users sorting
-        // const onlineUsers = getOnlineUsers();
-        // const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
-        // const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
+        // Create cache key that includes online status for better cache busting
+        const onlineUsers = getOnlineUsers();
+        const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
+        const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
         
-        // // Try to get from cache first - reduced cache time due to online status dependency
-        // const cachedData = cache.get(cacheKey);
-        // if (cachedData) {
-        //     console.log(`Cache hit for key: ${cacheKey}`);
-        //     return res.status(200).json(cachedData);
-        // }
+        // Try to get from cache first - reduced cache time due to online status dependency
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+            return res.status(200).json(cachedData);
+        }
         
-        console.log('🔥 DEBUGGING: Cache disabled for online users sorting');
-        const cacheKey = 'disabled'; // Placeholder
-
-        console.log(`Cache miss for key: ${cacheKey}, fetching from database`);
-
         // Get total number of users except the logged-in one (cache this too)
         const totalUsersCacheKey = `totalUsers:${LoggedInUserId}`;
         let totalUsers = cache.get(totalUsersCacheKey);
@@ -38,13 +32,9 @@ export const getUserForSidebar = async (req, res) => {
 
         // Get currently online users from socket
         const onlineUserIds = getOnlineUsers();
-        console.log(`🟢 Online users count: ${onlineUserIds.length}`);
-        console.log(`🟢 Online user IDs:`, onlineUserIds);
-        console.log(`🔍 LoggedInUserId:`, LoggedInUserId.toString());
         
         // Convert online user IDs to strings for comparison
         const onlineUserIdsAsStrings = onlineUserIds.map(id => id.toString());
-        console.log(`🔄 Online user IDs as strings:`, onlineUserIdsAsStrings);
         
         // SIMPLIFIED APPROACH: Get all users first, then sort with JavaScript
         const allUsersFromDB = await User.find(
@@ -64,8 +54,6 @@ export const getUserForSidebar = async (req, res) => {
             path: 'blockedUsers',
             select: 'fullName profilePic'
         }).lean();
-        
-        console.log(`📋 Found ${allUsersFromDB.length} total users from DB`);
         
         // Add online status and priority using JavaScript
         const usersWithOnlineStatus = allUsersFromDB.map(user => {
@@ -100,8 +88,6 @@ export const getUserForSidebar = async (req, res) => {
             };
         });
         
-        console.log(`🔄 Added online status to all users`);
-        
         // Sort users by priority, then by name
         const sortedUsers = usersWithOnlineStatus.sort((a, b) => {
             if (a.sortPriority !== b.sortPriority) {
@@ -110,16 +96,8 @@ export const getUserForSidebar = async (req, res) => {
             return a.fullName.localeCompare(b.fullName);
         });
         
-        console.log(`🔄 Sorted users by priority`);
-        
         // Apply pagination after sorting
         const allUsers = sortedUsers.slice(skip, skip + limit);
-
-        // DEBUG: Log aggregation results
-        console.log(`📋 Aggregation results (${allUsers.length} users):`);
-        allUsers.forEach((user, index) => {
-            console.log(`${index + 1}. ${user.fullName} - Online: ${user.isOnline} - Priority: ${user.sortPriority || 'undefined'}`);
-        });
 
         const FilteredUser = allUsers.map(user => {
             const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
