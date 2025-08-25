@@ -208,12 +208,15 @@ const ChatContainer = () => {
 
   // Scroll smoothly when new messages arrive IF user was previously at the bottom
   useEffect(() => {
-    // Check scroll position *before* new messages render might be tricky.
-    // Let's scroll if the *current* state indicates we are near the bottom.
-    if (isScrolledToBottom && !isLoadingMoreMessages) {
+    // Only auto-scroll if user was at bottom AND the message is from the current user
+    // or if this is the first time loading messages
+    const lastMessage = messages[messages.length - 1];
+    const isMyMessage = lastMessage?.sender?._id === authUser?._id || lastMessage?.sender === authUser?._id;
+    
+    if (isScrolledToBottom && !isLoadingMoreMessages && (isMyMessage || messages.length <= 1)) {
       scrollToBottom("smooth");
     }
-  }, [messages, scrollToBottom, isLoadingMoreMessages, isScrolledToBottom]); // Use local isScrolledToBottom
+  }, [messages, scrollToBottom, isLoadingMoreMessages, isScrolledToBottom, authUser?._id]); // Added authUser dependency
 
   // Fetch initial messages
   useEffect(() => {

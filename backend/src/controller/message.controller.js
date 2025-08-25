@@ -547,7 +547,8 @@ export const markMessagesAsSeen = async (req, res) => {
 
 export const EditMessage = async (req, res) => {
     try {
-        const { messageId, newContent } = req.body;
+        const { messageId } = req.params; // Get messageId from URL params
+        const { newContent } = req.body; // Get newContent from request body
         const userId = req.user._id;
 
         // Find the message
@@ -562,11 +563,23 @@ export const EditMessage = async (req, res) => {
         if (message.sender.toString() !== userId.toString()) {
             return res.status(403).json({ message: "You can only edit your own messages" });
         }
-        // Update the message content
+        // Update the message content and mark as edited
         message.content = newContent;
+        message.edited = true;
         await message.save();
 
         // Get the io instance
+        const io = req.app.get('io');
+        
+        // Emit socket event to notify other clients about the edit
+        if (io) {
+            io.emit('message_edited', {
+                messageId,
+                newContent,
+                conversationId: message.receiver.toString()
+            });
+        }
+        
         res.status(200).json({ message: "Message updated successfully", updatedMessage: message });
     } catch (error) {
         console.error("Error in EditMessage controller:", error);

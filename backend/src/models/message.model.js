@@ -33,6 +33,10 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Tracks if the receiver has read the message
     },
+    edited: {
+      type: Boolean,
+      default: false, // Tracks if the message has been edited
+    },
   },
   { timestamps: true } // Automatically adds createdAt and updatedAt fields
 );
