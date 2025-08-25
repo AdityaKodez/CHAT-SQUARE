@@ -6,13 +6,19 @@ import cache from "../lib/cache.js";
 import { getOnlineUsers } from "../lib/socket.js";
 export const getUserForSidebar = async (req, res) => {
     try {
+        // Check if user is authenticated
+        if (!req.user || !req.user._id) {
+            console.error("getUserForSidebar: No authenticated user found");
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+        
         const LoggedInUserId = req.user._id;
         const skip = parseInt(req.query.skip) || 0;
         const limit = parseInt(req.query.limit) || 10;
 
         // Create cache key that includes online status for better cache busting
-        const onlineUsers = getOnlineUsers();
-        const onlineUsersKey = onlineUsers.sort().join(','); // Create a stable key from online users
+        const onlineUsers = getOnlineUsers() || []; // Add fallback to empty array
+        const onlineUsersKey = onlineUsers.length > 0 ? onlineUsers.sort().join(',') : 'none'; // Handle empty array case
         const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}:${onlineUsersKey.slice(0, 50)}`; // Limit key length
         
         // Try to get from cache first - reduced cache time due to online status dependency
@@ -50,10 +56,7 @@ export const getUserForSidebar = async (req, res) => {
                 createdAt: 1,
                 updatedAt: 1
             }
-        ).populate({
-            path: 'blockedUsers',
-            select: 'fullName profilePic'
-        }).lean();
+        ).lean();
         
         // Add online status and priority using JavaScript
         const usersWithOnlineStatus = allUsersFromDB.map(user => {
@@ -100,8 +103,8 @@ export const getUserForSidebar = async (req, res) => {
         const allUsers = sortedUsers.slice(skip, skip + limit);
 
         const FilteredUser = allUsers.map(user => {
-            const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
-                ? user.blockedUsers.some(blockedId => blockedId.equals(LoggedInUserId))
+            const isBlockedViewer = Array.isArray(user.blockedUsers)
+                ? user.blockedUsers.some(blockedId => blockedId?.toString() === LoggedInUserId.toString())
                 : false;
             
             const { blockedUsers, ...userWithoutBlockedList } = user;
@@ -130,8 +133,12 @@ export const getUserForSidebar = async (req, res) => {
         res.status(200).json(responseData);
 
     } catch (error) {
-        console.log("Error in getUserForSidebar:", error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("Error in getUserForSidebar:", error);
+        console.error("Error stack:", error.stack);
+        res.status(500).json({ 
+            message: "Internal server error", 
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+        });
     }
 };
 
