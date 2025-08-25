@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import ChatStore from "../store/useChatStore.js";
 import SidebarSkeleton from "./skeleton/Sidebarskeleton.jsx";
-import { BadgeCheck, Plus, User, Users, Globe } from "lucide-react";
+import { BadgeCheck, Plus, User, Users, Globe, Loader } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore.js";
 import FeedbackWidget from "./feedback.jsx";
 
@@ -46,11 +46,15 @@ const Sidebar = () => {
     unreadCounts,
     initializeSocketListeners,
     globalChatSelected,
-    setGlobalChatSelected
+    setGlobalChatSelected,
+    loadMoreUsers,
+    hasMoreUsers,
+    isLoadingMoreUsers
   } = ChatStore();
   
   const { authUser } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const scrollContainerRef = useRef(null);
 
   // Function to get a random color from the Colors array
   function getRandomColor(userId) {
@@ -107,6 +111,19 @@ const Sidebar = () => {
     });
   }, [sortedUsers]);
 
+  // Infinite scroll handler
+  const handleScroll = useCallback((e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    
+    // Check if user has scrolled to the bottom
+    if (scrollHeight - scrollTop <= clientHeight + 100) {
+      // Only load more if we have more users and aren't already loading
+      if (hasMoreUsers && !isLoadingMoreUsers && !showOnlineOnly) {
+        loadMoreUsers();
+      }
+    }
+  }, [hasMoreUsers, isLoadingMoreUsers, loadMoreUsers, showOnlineOnly]);
+
   if (isUserLoading) return <SidebarSkeleton />;
 
   // Function to get the last message for a user
@@ -143,7 +160,11 @@ const Sidebar = () => {
       </div>
 
       {/* Users List Section */}
-      <div className="overflow-y-auto flex-1 w-full py-3">
+      <div 
+        className="overflow-y-auto flex-1 w-full py-3"
+        onScroll={handleScroll}
+        ref={scrollContainerRef}
+      >
         {/* Global Chat Entry - Always at the top */}
         <button
           onClick={() => setGlobalChatSelected()}
@@ -270,6 +291,21 @@ const Sidebar = () => {
         ) : (
           <div className="text-center text-zinc-500 py-4">
             {showOnlineOnly ? "No online users" : "No users found"}
+          </div>
+        )}
+        
+        {/* Loading indicator for infinite scroll */}
+        {isLoadingMoreUsers && (
+          <div className="flex justify-center items-center py-4">
+            <Loader className="w-5 h-5 animate-spin text-base-content/60" />
+            <span className="ml-2 text-sm text-base-content/60 hidden lg:block">Loading more users...</span>
+          </div>
+        )}
+        
+        {/* End of users indicator */}
+        {!hasMoreUsers && users.length > 0 && !showOnlineOnly && (
+          <div className="text-center text-zinc-400 py-2 text-xs hidden lg:block">
+            That's all for now!
           </div>
         )}
       </div>

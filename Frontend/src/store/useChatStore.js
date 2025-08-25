@@ -263,62 +263,62 @@ const ChatStore = create((set, get) => ({
   // Update the formatLastOnline method
   // Add this to your initial state
   userRefreshInterval: null,
-  
-  // Update getUsers to handle lastOnline
-  getUsers: async function() {
-    set({ isUserLoading: true });
+  currentPage: 1,
+  hasMoreUsers: true,
+  isLoadingMoreUsers: false,
+  userPagination: null,
+
+  // Fixed getUsers function with proper pagination
+  getUsers: async (options = {}) => {
+    const { skip = 0, limit = 10, isLoadMore = false } = options;
+    
+    // Set loading state
+    if (isLoadMore) {
+      set({ isLoadingMoreUsers: true });
+    } else {
+      set({ isUserLoading: true });
+    }
+
     try {
-      // Clear any existing interval
-      const currentInterval = get().userRefreshInterval;
-      if (currentInterval) {
-        clearInterval(currentInterval);
-      }
-      
-      // Initial fetch
-      const res = await axiosInstance.get("/message/users");
+      const response = await axiosInstance.get(
+        `/message/users?skip=${skip}&limit=${limit}`);
+
+      const { users: fetchedUsers, pagination } = response.data;
+
+      set((state) => ({
+        users: skip === 0 ? fetchedUsers : [...state.users, ...fetchedUsers],
+        hasMoreUsers: pagination.hasNextPage,
+        userPagination: pagination,
+        isUserLoading: false,
+        isLoadingMoreUsers: false,
+        error: null
+      }));
+
+      return pagination;
+    } catch (err) {
+      console.error("Failed to fetch users:", err);
       set({ 
-        users: res.data.map(user => ({
-          ...user,
-          lastOnline: user.lastOnline ? new Date(user.lastOnline) : null
-        })), 
-        isUserLoading: false 
+        error: err.message, 
+        isUserLoading: false,
+        isLoadingMoreUsers: false 
       });
-      
-      // Set up interval for periodic updates
-      const intervalId = setInterval(async () => {
-        try {
-          const res = await axiosInstance.get("/message/users");
-          set({ 
-            users: res.data.map(user => ({
-              ...user,
-              lastOnline: user.lastOnline ? new Date(user.lastOnline) : null
-            }))
-          });
-          
-          // After getting users, update their online status
-          const onlineUserIds = get().onlineUsers;
-          if (onlineUserIds.length > 0) {
-            get().setOnlineUsers(onlineUserIds);
-          }
-        } catch (error) {
-          console.error("Error in periodic user fetch:", error);
-        }
-      }, 5000); // Update every 5 seconds
-      
-      set({ userRefreshInterval: intervalId });
-      
-      // After getting users, update their online status
-      const onlineUserIds = get().onlineUsers;
-      if (onlineUserIds.length > 0) {
-        get().setOnlineUsers(onlineUserIds);
-      }
-    } 
-    catch (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Error fetching users");
-      set({ isUserLoading: false });
     }
   },
+
+  // Load more users for infinite scroll
+  loadMoreUsers: async () => {
+    const state = get();
+    if (state.isLoadingMoreUsers || !state.hasMoreUsers) return;
+
+    const currentUsersCount = state.users.length;
+    await state.getUsers({ 
+      skip: currentUsersCount, 
+      limit: 10, 
+      isLoadMore: true 
+    });
+  },
+
+
   
   //  getMessages method
   getMessages: async function({ userId, page = 1, limit = 20 }) {

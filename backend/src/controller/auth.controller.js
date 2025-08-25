@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import { sendOTPEmail } from "../lib/nodemailer.js";
 import Otp from "../models/otp.model.js";
+import { invalidateAllUserCaches } from "../lib/userCache.js";
 
 export const signup = async (req, res) => {
    const { fullName, password, email } = req.body;
@@ -47,6 +48,10 @@ export const signup = async (req, res) => {
 
       if (newUser) {
          await newUser.save();
+         
+         // Invalidate all user caches since total count changes
+         invalidateAllUserCaches();
+         
          // Generate JWT token and attach to response
         generateToken(newUser._id,res);
          return res.status(201).json({
@@ -178,6 +183,9 @@ export const updateProfile = async (req, res) => {
 
     // Save updated user
     await user.save();
+    
+    // Invalidate all user caches since user data changed
+    invalidateAllUserCaches();
 
     // Get the io instance
     const io = req.app.get('io');

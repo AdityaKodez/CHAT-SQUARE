@@ -40,6 +40,13 @@ const userSchema  = new mongoose.Schema(
     {timestamps:true}
 )
 
+// Add database indexes for better query performance
+userSchema.index({ lastOnline: -1 }); // For sorting by lastOnline
+userSchema.index({ email: 1 }); // Already unique, but ensure index
+userSchema.index({ createdAt: -1 }); // For sorting by creation date
+userSchema.index({ fullName: 'text' }); // For text search if needed
+userSchema.index({ isVerified: 1 }); // For filtering by verification status
+
 const User =mongoose.model("User",userSchema)
 
 export default User

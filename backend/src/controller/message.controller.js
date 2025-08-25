@@ -2,39 +2,91 @@ import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import Notification from "../models/Notification.model.js";
+import cache from "../lib/cache.js";
 export const getUserForSidebar = async (req, res) => {
     try {
         const LoggedInUserId = req.user._id;
-        // Fetch all users except the logged-in one
-        const allUsers = await User.find({ _id: { $ne: LoggedInUserId } })
-            // Select only existing fields. Remove 'username' and 'timestamps'.
-            // 'createdAt' and 'updatedAt' are added automatically by {timestamps:true} but usually not selected directly unless needed.
-            .select("fullName _id profilePic lastOnline description isVerified blockedUsers createdAt updatedAt") 
-            .lean(); // Use lean for performance
+        const skip = parseInt(req.query.skip) || 0;
+        const limit = parseInt(req.query.limit) || 10;
 
-        // Check block status for each user relative to the logged-in user
+        // Create cache key
+        const cacheKey = `users:${LoggedInUserId}:${skip}:${limit}`;
+        
+        // Try to get from cache first
+        const cachedData = cache.get(cacheKey);
+        if (cachedData) {
+            console.log(`Cache hit for key: ${cacheKey}`);
+            return res.status(200).json(cachedData);
+        }
+
+        console.log(`Cache miss for key: ${cacheKey}, fetching from database`);
+
+        // Get total number of users except the logged-in one (cache this too)
+        const totalUsersCacheKey = `totalUsers:${LoggedInUserId}`;
+        let totalUsers = cache.get(totalUsersCacheKey);
+        
+        if (!totalUsers) {
+            totalUsers = await User.countDocuments({ _id: { $ne: LoggedInUserId } });
+            cache.set(totalUsersCacheKey, totalUsers, 2 * 60 * 1000); // Cache for 2 minutes
+        }
+
+        // Fetch paginated users with optimized query
+        const allUsers = await User.find(
+            { _id: { $ne: LoggedInUserId } },
+            {
+                fullName: 1,
+                _id: 1,
+                profilePic: 1,
+                lastOnline: 1,
+                description: 1,
+                isVerified: 1,
+                blockedUsers: 1,
+                createdAt: 1,
+                updatedAt: 1
+            }
+        )
+        .populate("blockedUsers", "fullName profilePic")
+        .skip(skip)
+        .limit(limit)
+        .sort({ lastOnline: -1 })
+        .lean({ virtuals: false }); // Disable virtuals for better performance
+
         const FilteredUser = allUsers.map(user => {
-            // Check if the current user in the loop (user) has blocked the logged-in user (LoggedInUserId)
-            // Ensure blockedUsers exists before trying to use .some()
             const isBlockedViewer = user.blockedUsers && Array.isArray(user.blockedUsers) 
                 ? user.blockedUsers.some(blockedId => blockedId.equals(LoggedInUserId))
                 : false;
             
-            // Remove blockedUsers array from the final output for privacy/security
-            const { blockedUsers, ...userWithoutBlockedList } = user; 
+            const { blockedUsers, ...userWithoutBlockedList } = user;
 
             return {
                 ...userWithoutBlockedList,
-                isBlockedViewer 
+                isBlockedViewer
             };
         });
 
-        res.status(200).json(FilteredUser);
+        const responseData = {
+            users: FilteredUser,
+            pagination: {
+                totalUsers,
+                skip,
+                limit,
+                count: FilteredUser.length,
+                hasNextPage: skip + limit < totalUsers,
+                hasPrevPage: skip > 0
+            }
+        };
+
+        // Cache the response for 3 minutes
+        cache.set(cacheKey, responseData, 3 * 60 * 1000);
+
+        res.status(200).json(responseData);
+
     } catch (error) {
-        console.log("Error in getUserForSidebar:", error); // Improved logging
+        console.log("Error in getUserForSidebar:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
 
 // Get all unread notifications for a user
 export const getUnreadNotifications = async (req, res) => {
