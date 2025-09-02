@@ -8,12 +8,15 @@ import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import VerifyEmailButton from "@/components/VerifyEmailButton"
 import VerificationPopup from "@/components/VerificationPopup"
-import { useVerification } from "@/context/VerificationContext";
+import { useVerification } from "@/context/VerificationContext"
+import GitHubButton from "@/components/GitHubButton"
+import OpenSourcePopup from "@/components/OpenSourcePopup"
 
 const NavBar = () => {
   const { authUser, logout, isLoggingOut } = useAuthStore() // Destructure isLoggingOut
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [showVerification, setShowVerification] = useState(false)
+  const [showOpenSourcePopup, setShowOpenSourcePopup] = useState(false)
   const menuRef = useRef(null)
   const { openVerification } = useVerification();
 
@@ -130,6 +133,13 @@ const NavBar = () => {
         </Link>
       </div>
       <div className="settings flex items-center gap-3 pr-3">
+        {/* GitHub Button - only show when authenticated */}
+        {authUser && (
+          <GitHubButton 
+            onClick={() => setShowOpenSourcePopup(true)}
+          />
+        )}
+        
         {/* Notification button */}
         {authUser && <NotificationCenter size="1rem" />}
 
@@ -288,6 +298,12 @@ const NavBar = () => {
       <VerificationPopup 
         isOpen={showVerification}
         onClose={() => setShowVerification(false)}
+      />
+      
+      {/* Open Source Popup */}
+      <OpenSourcePopup 
+        isOpen={showOpenSourcePopup}
+        onClose={() => setShowOpenSourcePopup(false)}
       />
     </div>
   )
