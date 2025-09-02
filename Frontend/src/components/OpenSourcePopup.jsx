@@ -121,7 +121,7 @@ const OpenSourcePopup = ({ isOpen, onClose }) => {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 min-h-screen"
             onClick={onClose}
           >
             {/* Confetti */}
@@ -137,7 +137,7 @@ const OpenSourcePopup = ({ isOpen, onClose }) => {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="relative bg-base-100 rounded-2xl shadow-2xl border border-base-300 max-w-md w-full mx-4 overflow-hidden"
+              className="relative bg-base-100 rounded-2xl shadow-2xl border border-base-300 max-w-md w-full mx-auto overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Close button */}

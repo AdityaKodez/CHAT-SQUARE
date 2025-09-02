@@ -10,8 +10,8 @@ const Logo = ({Title,Content}) => {
       >
         <MessageSquare className="size-6 text-white" />
       </div>
-      <h1 className="text-2xl font-bold mt-2 font-work-sans">{Title}</h1>
-      <p className="text-base-content/60 font-poppins">{Content}</p>
+      <h1 className="text-2xl font-bold mt-2 font-work-sans hidden sm:block">{Title}</h1>
+      <p className="text-base-content/60 font-poppins hidden sm:block">{Content}</p>
    </div>
   </div>
   )

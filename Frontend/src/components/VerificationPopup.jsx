@@ -169,7 +169,7 @@ const VerificationPopup = () => {
     <AnimatePresence>
       {showVerification && (
         <motion.div
-          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[9999]"
+          className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[9999] min-h-screen"
           variants={overlayVariants}
           initial="hidden"
           animate="visible"
@@ -181,7 +181,7 @@ const VerificationPopup = () => {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="bg-base-100 p-8 rounded-2xl shadow-2xl max-w-md w-[90%] mx-4 relative border border-base-300 font-work-sans"
+            className="bg-base-100 p-8 rounded-2xl shadow-2xl max-w-md w-[90%] mx-auto relative border border-base-300 font-work-sans"
             onClick={(e) => e.stopPropagation()}
           >
             <motion.button
